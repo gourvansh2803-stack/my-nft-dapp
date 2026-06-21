@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>P2P Pipeline Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-900 text-white p-6">
+    <div class="max-w-4xl mx-auto">
+        <h1 class="text-3xl font-bold mb-6 text-center">P2P NFT Pipeline Dashboard</h1>
+        
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+            <div class="bg-gray-800 p-4 rounded-lg"> <p class="text-gray-400 text-sm">Team Size</p> <p id="teamSize" class="text-xl font-bold">0</p> </div>
+            <div class="bg-gray-800 p-4 rounded-lg"> <p class="text-gray-400 text-sm">Total Earned</p> <p id="totalEarned" class="text-xl font-bold">0 USDT</p> </div>
+            <div class="bg-gray-800 p-4 rounded-lg"> <p class="text-gray-400 text-sm">In Sale / Queue</p> <p id="nftStatus" class="text-xl font-bold">1 / 0</p> </div>
+            <div class="bg-gray-800 p-4 rounded-lg"> <p class="text-gray-400 text-sm">My Investment</p> <p id="myInvested" class="text-xl font-bold">0/12</p> </div>
+        </div>
+
+        <div class="bg-gray-800 p-6 rounded-lg text-center">
+            <button id="connectBtn" class="bg-blue-600 px-6 py-2 rounded mb-4">Connect Wallet</button>
+            <input id="refInput" type="text" placeholder="Referrer Address" class="w-full p-2 mb-4 bg-gray-700 rounded text-sm text-center">
+            <button onclick="handleBuy()" class="w-full bg-green-600 hover:bg-green-700 p-3 rounded font-bold">Approve & Buy NFT</button>
+        </div>
+    </div>
+
+    <script>
+        const gameAddr = "0x24ec0Da54E5C70E9ab3289cAA9684DE82bEa4E68";
+        const usdtAddr = "0x9e5aac1ba1a2e6aed6b32689dfcf62a509ca96f3";
+        const abi = [
+            "function buyNFT(address _referrer) external",
+            "function teamCount(address) view returns (uint256)",
+            "function totalEarned(address) view returns (uint256)",
+            "function dailyInvestment(address) view returns (uint256)",
+            "function getQueueLength() view returns (uint256)",
+            "function activeNftIndex() view returns (uint256)"
+        ];
+
+        let signer, contract;
+
+        document.getElementById('connectBtn').onclick = async () => {
+            if (!window.ethereum) return alert("MetaMask install karo!");
+            const provider = new ethers.providers.Web3Provider(window.ethereum);
+            await provider.send("eth_requestAccounts", []);
+            signer = provider.getSigner();
+            contract = new ethers.Contract(gameAddr, abi, signer);
+            updateDashboard();
+        };
+
+        async function updateDashboard() {
+            const user = await signer.getAddress();
+            const [team, earned, invest, total, active] = await Promise.all([
+                contract.teamCount(user), contract.totalEarned(user),
+                contract.dailyInvestment(user), contract.getQueueLength(), contract.activeNftIndex()
+            ]);
+            document.getElementById("teamSize").innerText = team.toString();
+            document.getElementById("totalEarned").innerText = ethers.utils.formatEther(earned) + " USDT";
+            document.getElementById("myInvested").innerText = ethers.utils.formatEther(invest) + "/12";
+            document.getElementById("nftStatus").innerText = `1 / ${total - 1}`;
+        }
+
+        async function handleBuy() {
+            const usdt = new ethers.Contract(usdtAddr, ["function approve(address,uint256)"], signer);
+            const ref = document.getElementById("refInput").value || "0x70eEFEd646d12AB2A352D61aFc40947F5187797c";
+            try {
+                const tx1 = await usdt.approve(gameAddr, ethers.utils.parseUnits("1000", 18));
+                await tx1.wait();
+                const tx2 = await contract.buyNFT(ref);
+                await tx2.wait();
+                alert("Transaction Success!");
+            } catch(e) { alert("Error: " + e.message); }
+        }
+    </script>
+</body>
+</html>
