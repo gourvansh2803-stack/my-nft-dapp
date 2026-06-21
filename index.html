@@ -114,22 +114,187 @@
 
         let provider, signer, gameContract, usdtContract, userAddress;
 
-        // Force opBNB Network
+        // Force opBNB Network - Fixed for Mobile compatibility
         async function enforceOpBNBNetwork() {
-            const opbnbChainId = '0xcc'; // 204 in Hex (opBNB Mainnet)
+            const opbnbChainId = '0xcc'; 
             if (!window.ethereum) return;
-            const currentChainId = await window.ethereum.request({ method: 'eth_chainId' });
-            if (currentChainId !== opbnbChainId) {
-                try {
-                    await window.ethereum.request({
-                        method: 'wallet_switchEthereumChain',
-                        params: [{ chainId: opbnbChainId }],
-                    });
-                } catch (switchError) {
-                    if (switchError.code === 4902) {
+            try {
+                await window.ethereum.request({
+                    method: 'wallet_switchEthereumChain',
+                    params: [{ chainId: opbnbChainId }],
+                });
+            } catch (switchError) {
+                if (switchError.code === 4902) {
+                    try {
                         await window.ethereum.request({
                             method: 'wallet_addEthereumChain',
                             params: [{
                                 chainId: opbnbChainId,
                                 chainName: 'opBNB Mainnet',
                                 nativeCurrency: { name: 'BNB', symbol: 'BNB', decimals: 18 },
+                                rpcUrls: ['https://opbnb-mainnet-rpc.bnbchain.org'],
+                                blockExplorerUrls: ['https://mainnet.opbnbscan.com']
+                            }],
+                        });
+                    } catch (addError) {
+                        console.error("Could not add network", addError);
+                    }
+                }
+            }
+        }
+
+        // Fixed connection flow for MetaMask Mobile
+        async function connectWallet() {
+            if (window.ethereum) {
+                try {
+                    // Step 1: Request accounts FIRST to trigger the MetaMask popup immediately
+                    provider = new ethers.providers.Web3Provider(window.ethereum);
+                    const accounts = await provider.send("eth_requestAccounts", []);
+                    
+                    if(accounts.length === 0) {
+                        alert("No accounts connected!");
+                        return;
+                    }
+
+                    // Step 2: Now switch network after getting connection access
+                    await enforceOpBNBNetwork();
+                    
+                    // Re-instantiate provider and signer safely after network choice
+                    provider = new ethers.providers.Web3Provider(window.ethereum);
+                    signer = provider.getSigner();
+                    userAddress = await signer.getAddress();
+                    
+                    gameContract = new ethers.Contract(contractAddress, gameAbi, signer);
+                    let usdtAddress = await gameContract.usdt();
+                    usdtContract = new ethers.Contract(usdtAddress, erc20Abi, signer);
+                    
+                    document.getElementById("user-wallet").innerText = userAddress.substring(0, 6) + "..." + userAddress.slice(-4);
+                    
+                    let registered = await gameContract.isRegistered(userAddress);
+                    if (registered) {
+                        document.getElementById("auth-section").classList.add("hidden");
+                        document.getElementById("dashboard-section").classList.remove("hidden");
+                        loadDashboardData();
+                    } else {
+                        document.getElementById("connect-btn").classList.add("hidden");
+                        document.getElementById("signup-box").classList.remove("hidden");
+                    }
+                } catch (error) {
+                    console.error("Connection Error:", error);
+                    alert("Wallet connection or Network setup failed. Check MetaMask.");
+                }
+            } else {
+                alert("Please open this link inside MetaMask Browser!");
+            }
+        }
+
+        async function loadDashboardData() {
+            try {
+                let earned = await gameContract.totalEarned(userAddress);
+                let team = await gameContract.teamCount(userAddress);
+                document.getElementById("total-income").innerText = parseFloat(ethers.utils.formatUnits(earned, 18)).toFixed(4);
+                document.getElementById("team-count").innerText = team.toString();
+
+                let usedLimit = await gameContract.dailyInvestment(userAddress);
+                let lastInvestTime = await gameContract.lastInvestmentTimestamp(userAddress);
+                let limitResetTime = lastInvestTime.toNumber() + (24 * 3600); 
+
+                if (Math.floor(Date.now() / 1000) > limitResetTime) {
+                    document.getElementById("used-limit").innerText = "0.00";
+                } else {
+                    document.getElementById("used-limit").innerText = ethers.utils.formatUnits(usedLimit, 18);
+                    start24hTimer(limitResetTime);
+                }
+
+                let auctionEnd = await gameContract.auctionEndTime();
+                start36hTimer(auctionEnd.toNumber());
+            } catch (err) {
+                console.error("Data load error:", err);
+            }
+        }
+
+        function start36hTimer(endTimeInSeconds) {
+            setInterval(() => {
+                let now = Math.floor(Date.now() / 1000);
+                let timeLeft = endTimeInSeconds - now;
+                if (timeLeft > 0) {
+                    let h = Math.floor(timeLeft / 3600).toString().padStart(2, '0');
+                    let m = Math.floor((timeLeft % 3600) / 60).toString().padStart(2, '0');
+                    let s = (timeLeft % 60).toString().padStart(2, '0');
+                    document.getElementById("nft-timer").innerText = `${h}:${m}:${s}`;
+                } else {
+                    document.getElementById("nft-timer").innerText = "IN SALE";
+                }
+            }, 1000);
+        }
+
+        function start24hTimer(endTimeInSeconds) {
+            let timerInterval = setInterval(() => {
+                let now = Math.floor(Date.now() / 1000);
+                let timeLeft = endTimeInSeconds - now;
+                if (timeLeft > 0) {
+                    let h = Math.floor(timeLeft / 3600).toString().padStart(2, '0');
+                    let m = Math.floor((timeLeft % 3600) / 60).toString().padStart(2, '0');
+                    let s = (timeLeft % 60).toString().padStart(2, '0');
+                    document.getElementById("limit-timer").innerText = `${h}:${m}:${s}`;
+                } else {
+                    document.getElementById("limit-timer").innerText = "00:00:00";
+                    document.getElementById("used-limit").innerText = "0.00";
+                    clearInterval(timerInterval);
+                }
+            }, 1000);
+        }
+
+        function switchTab(event, tabId) {
+            document.getElementById('trading').classList.add('hidden');
+            document.getElementById('market').classList.add('hidden');
+            document.getElementById('income').classList.add('hidden');
+            
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.getElementById(tabId).classList.remove('hidden');
+            event.currentTarget.classList.add('active');
+        }
+
+        async function approveUSDT() {
+            try {
+                let maxApproveAmount = ethers.constants.MaxUint256; 
+                let tx = await usdtContract.approve(contractAddress, maxApproveAmount);
+                alert("Approve request sent! Confirm in MetaMask.");
+                await tx.wait();
+                alert("USDT Approved Successfully!");
+            } catch (err) {
+                console.error(err);
+                alert("Approval Failed!");
+            }
+        }
+
+        async function registerAndBuy() {
+            let sponsor = document.getElementById("sponsor-address").value;
+            if(!sponsor) { alert("Please enter Sponsor Address!"); return; }
+            try {
+                let tx = await gameContract.buyNFT(sponsor);
+                alert("Transaction sent! Waiting...");
+                await tx.wait();
+                alert("Success!");
+                location.reload(); 
+            } catch (err) {
+                console.error(err);
+                alert("Transaction Failed!");
+            }
+        }
+
+        async function buyNFT() {
+            try {
+                let tx = await gameContract.buyNFT(ethers.constants.AddressZero);
+                alert("Buy transaction sent! Waiting...");
+                await tx.wait();
+                alert("NFT Purchased!");
+                loadDashboardData(); 
+            } catch (err) {
+                console.error(err);
+                alert("Purchase Failed!");
+            }
+        }
+    </script>
+</body>
+</html>
