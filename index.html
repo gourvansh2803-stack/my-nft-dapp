@@ -32,6 +32,11 @@
         .info-box { background: #1f2833; padding: 15px; border-radius: 6px; margin-bottom: 15px; border: 1px dashed #45a29e;}
         .stats { font-size: 24px; font-weight: bold; color: #fff; margin-top: 5px;}
         .highlight { color: #ff4c4c; }
+
+        /* Scrollbar for NFT List */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #0b0c10; }
+        ::-webkit-scrollbar-thumb { background: #45a29e; border-radius: 4px; }
     </style>
 </head>
 <body>
@@ -57,7 +62,6 @@
             </div>
         </div>
 
-
         <div id="dashboard-section" class="hidden">
             <div style="font-size: 13px; margin-bottom: 15px; background: #1f2833; padding: 10px; border-radius: 8px;">
                 Connected: <span id="user-wallet" style="color:#66fcf1; font-weight: bold;">...</span>
@@ -70,265 +74,20 @@
             </div>
 
             <div id="trading" class="folder">
-                <h3>Trading</h3>
-                <div class="info-box">
-                    <p style="color: #ff4c4c; font-weight: bold; font-size: 20px; margin: 0;">NOT FOR SALE</p>
-                    <p style="font-size: 13px; color: #aaa; margin-top: 5px;">Time remaining for public auction:</p>
-                    <div class="timer-text" id="nft-timer">00:00:00</div>
-                </div>
-            </div>
-
-            <div id="market" class="folder hidden">
-                <h3>Market</h3>
-                <div class="info-box">
-                    <p style="margin: 0; font-size: 15px;">Daily Limit: <strong style="color: #66fcf1;">12.00 USDT</strong></p>
-                    <p style="margin: 10px 0 0 0; font-size: 15px;">Used Limit: <strong id="used-limit" class="highlight">0.00</strong><strong> USDT</strong></p>
+                <h3>Trading Area</h3>
+                
+                <div class="info-box" style="border-color: #f39c12; background: #16212b;">
+                    <h4 style="margin: 0; color: #f39c12;">🎯 Current Active NFT</h4>
+                    <p style="margin: 8px 0; font-size: 16px; color: #fff;">NFT Number: <strong style="color: #66fcf1;">#<span id="active-nft-id">0</span></strong></p>
+                    <p style="margin: 8px 0; font-size: 18px; color: #fff;">Price: <strong style="color:#66fcf1;"><span id="active-nft-price">0.00</span> USDT</strong></p>
                     
                     <hr style="border-color: #45a29e; margin: 15px 0; opacity: 0.3;">
                     
-                    <p style="font-size: 12px; color: #aaa; margin: 0;">Limit Resets In (24h Timer):</p>
-                    <div class="timer-text" id="limit-timer" style="font-size: 22px; color: #f39c12; margin-top: 5px;">00:00:00</div>
+                    <p style="font-weight: bold; font-size: 18px; margin: 0; letter-spacing: 1px;" id="nft-status-label">LOADING...</p>
+                    <p style="font-size: 12px; margin: 5px 0 0 0; color: #aaa;">Countdown Timer</p>
+                    <div class="timer-text" id="nft-timer">00:00:00</div>
                 </div>
-                
-                <p style="font-size: 12px; color: #aaa; margin-bottom: 5px;">Action Required to Buy NFT:</p>
-                <button class="btn-approve" onclick="approveUSDT()">Approve USDT Allowance</button>
-                <button class="btn-primary" onclick="buyNFT()">Buy NFT</button>
-            </div>
 
-            <div id="income" class="folder hidden">
-                <h3>Income & Team</h3>
-                <div class="info-box">
-                    <p style="margin: 0; font-size: 14px; color: #aaa;">Total Earned Income</p>
-                    <div class="stats" id="total-income">0.00 <span style="font-size:14px; color:#66fcf1;">USDT</span></div>
-                </div>
-                <div class="info-box">
-                    <p style="margin: 0; font-size: 14px; color: #aaa;">Total Team Size</p>
-                    <div class="stats" id="team-count" style="color: #f39c12;">0 <span style="font-size:14px; color:#aaa;">Members</span></div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        const contractAddress = "0x24ec0Da54E5C70E9ab3289cAA9684DE82bEa4E68";
-        
-        const gameAbi = [
-            "function isRegistered(address) view returns (bool)",
-            "function totalEarned(address) view returns (uint256)",
-            "function teamCount(address) view returns (uint256)",
-            "function dailyInvestment(address) view returns (uint256)",
-            "function lastInvestmentTimestamp(address) view returns (uint256)",
-            "function auctionEndTime() view returns (uint256)",
-            "function usdt() view returns (address)",
-            "function buyNFT(address _referrer) external"
-        ];
-
-        const erc20Abi = [
-            "function approve(address spender, uint256 amount) external returns (bool)",
-            "function allowance(address owner, address spender) external view returns (uint256)"
-        ];
-
-        let provider, signer, gameContract, usdtContract, userAddress;
-
-        // Force Switch to opBNB Network
-        async function setupOpBNB() {
-            const opbnbChainId = '0xcc'; // 204 in Hex (opBNB Mainnet)
-            const currentChainId = await window.ethereum.request({ method: 'eth_chainId' });
-            
-            if (currentChainId !== opbnbChainId) {
-                try {
-                    await window.ethereum.request({
-                        method: 'wallet_switchEthereumChain',
-                        params: [{ chainId: opbnbChainId }],
-                    });
-                } catch (error) {
-                    if (error.code === 4902) {
-                        await window.ethereum.request({
-                            method: 'wallet_addEthereumChain',
-                            params: [{
-                                chainId: opbnbChainId,
-                                chainName: 'opBNB Mainnet',
-                                nativeCurrency: { name: 'BNB', symbol: 'BNB', decimals: 18 },
-                                rpcUrls: ['https://opbnb-mainnet-rpc.bnbchain.org'],
-                                blockExplorerUrls: ['https://mainnet.opbnbscan.com']
-                            }],
-                        });
-                    } else {
-                        throw error;
-                    }
-                }
-            }
-        }
-
-        // 1. LOGIN / CONNECT LOGIC
-        async function connectWallet() {
-            if (window.ethereum) {
-                try {
-                    // Mobile fix: Request accounts FIRST, then switch network
-                    provider = new ethers.providers.Web3Provider(window.ethereum);
-                    await provider.send("eth_requestAccounts", []);
-                    
-                    // Switch to opBNB
-                    await setupOpBNB();
-                    
-                    // Re-initialize after network switch
-                    provider = new ethers.providers.Web3Provider(window.ethereum);
-                    signer = provider.getSigner();
-                    userAddress = await signer.getAddress();
-                    
-                    // Initialize Contracts
-                    gameContract = new ethers.Contract(contractAddress, gameAbi, signer);
-                    let usdtAddress = await gameContract.usdt();
-                    usdtContract = new ethers.Contract(usdtAddress, erc20Abi, signer);
-                    
-                    // Update UI with Wallet Address
-                    document.getElementById("user-wallet").innerText = userAddress.substring(0, 6) + "..." + userAddress.slice(-4);
-                    
-                    // Check if User is Registered (LOGIN CHECK)
-                    let registered = await gameContract.isRegistered(userAddress);
-                    
-                    if (registered) {
-                        // Old User -> Login successful -> Show 3 Folders
-                        document.getElementById("auth-section").classList.add("hidden");
-                        document.getElementById("dashboard-section").classList.remove("hidden");
-                        loadFoldersData();
-                    } else {
-                        // New User -> Show Sign Up Form (Hide connect button)
-                        document.getElementById("connect-btn").classList.add("hidden");
-                        document.getElementById("signup-box").classList.remove("hidden");
-                    }
-                } catch (error) {
-                    console.error("Connection Failed:", error);
-                    alert("Wallet Connection Failed! Please open in MetaMask browser and approve the connection.");
-                }
-            } else {
-                alert("MetaMask not found! Please open this website inside MetaMask Browser.");
-            }
-        }
-
-        // 2. FETCH DATA FOR FOLDERS
-        async function loadFoldersData() {
-            try {
-                // Folder 3: Income & Team
-                let earned = await gameContract.totalEarned(userAddress);
-                let team = await gameContract.teamCount(userAddress);
-                document.getElementById("total-income").innerText = parseFloat(ethers.utils.formatUnits(earned, 18)).toFixed(4);
-                document.getElementById("team-count").innerText = team.toString();
-
-                // Folder 2: Market Limit & 24h Timer
-                let usedLimit = await gameContract.dailyInvestment(userAddress);
-                let lastInvestTime = await gameContract.lastInvestmentTimestamp(userAddress);
-                let limitResetTime = lastInvestTime.toNumber() + (24 * 3600); // Add 24 hours
-                
-                // If 24 hours have passed, reset used limit visually to 0
-                if (Math.floor(Date.now() / 1000) > limitResetTime) {
-                    document.getElementById("used-limit").innerText = "0.00";
-                    document.getElementById("limit-timer").innerText = "00:00:00";
-                } else {
-                    document.getElementById("used-limit").innerText = parseFloat(ethers.utils.formatUnits(usedLimit, 18)).toFixed(2);
-                    start24hTimer(limitResetTime);
-                }
-
-                // Folder 1: Trading 36h Timer
-                let auctionEnd = await gameContract.auctionEndTime();
-                start36hTimer(auctionEnd.toNumber());
-            } catch (err) {
-                console.error("Data load error:", err);
-            }
-        }
-
-        // TIMER LOGIC
-        function start36hTimer(endTimeInSeconds) {
-            setInterval(() => {
-                let now = Math.floor(Date.now() / 1000);
-                let timeLeft = endTimeInSeconds - now;
-                if (timeLeft > 0) {
-                    let h = Math.floor(timeLeft / 3600).toString().padStart(2, '0');
-                    let m = Math.floor((timeLeft % 3600) / 60).toString().padStart(2, '0');
-                    let s = (timeLeft % 60).toString().padStart(2, '0');
-                    document.getElementById("nft-timer").innerText = `${h}:${m}:${s}`;
-                } else {
-                    document.getElementById("nft-timer").innerText = "IN SALE";
-                }
-            }, 1000);
-        }
-
-        function start24hTimer(endTimeInSeconds) {
-            let timerInterval = setInterval(() => {
-                let now = Math.floor(Date.now() / 1000);
-                let timeLeft = endTimeInSeconds - now;
-                if (timeLeft > 0) {
-                    let h = Math.floor(timeLeft / 3600).toString().padStart(2, '0');
-                    let m = Math.floor((timeLeft % 3600) / 60).toString().padStart(2, '0');
-                    let s = (timeLeft % 60).toString().padStart(2, '0');
-                    document.getElementById("limit-timer").innerText = `${h}:${m}:${s}`;
-                } else {
-                    document.getElementById("limit-timer").innerText = "00:00:00";
-                    document.getElementById("used-limit").innerText = "0.00"; // Reset visually
-                    clearInterval(timerInterval);
-                }
-            }, 1000);
-        }
-
-        // FOLDER SWITCH TAB LOGIC
-        function switchTab(event, tabId) {
-            // Hide all folders inside dashboard
-            document.getElementById('trading').classList.add('hidden');
-            document.getElementById('market').classList.add('hidden');
-            document.getElementById('income').classList.add('hidden');
-            
-            // Remove active class from all buttons
-            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-            
-            // Show selected folder and highlight button
-            document.getElementById(tabId).classList.remove('hidden');
-            event.currentTarget.classList.add('active');
-        }
-
-        // 3. ACTION BUTTONS LOGIC
-        async function approveUSDT() {
-            try {
-                let maxApproveAmount = ethers.constants.MaxUint256; 
-                let tx = await usdtContract.approve(contractAddress, maxApproveAmount);
-                alert("Approve request sent! Please confirm the transaction in MetaMask.");
-                await tx.wait(); // Wait for blockchain confirmation
-                alert("USDT Approved Successfully! You can now Buy NFT.");
-            } catch (err) {
-                console.error("Approve Error:", err);
-                alert("Approval Failed! Check if you have enough BNB for gas fees.");
-            }
-        }
-
-        async function registerAndBuy() {
-            let sponsor = document.getElementById("sponsor-address").value;
-            if(!sponsor) { alert("Please enter Sponsor Address!"); return; }
-            if(!ethers.utils.isAddress(sponsor)) { alert("Invalid Sponsor Address format!"); return; }
-
-            try {
-                let tx = await gameContract.buyNFT(sponsor);
-                alert("Sign Up & Buy transaction sent! Waiting for blockchain confirmation...");
-                await tx.wait();
-                alert("Sign Up Successful! Welcome to the DApp.");
-                location.reload(); // Reload to enter Dashboard (Login)
-            } catch (err) {
-                console.error("Buy Error:", err);
-                alert("Transaction Failed! Did you Approve USDT first?");
-            }
-        }
-
-        async function buyNFT() {
-            try {
-                // Existing users pass AddressZero because their sponsor is already saved
-                let tx = await gameContract.buyNFT(ethers.constants.AddressZero);
-                alert("Buy transaction sent! Waiting for blockchain confirmation...");
-                await tx.wait();
-                alert("NFT Purchased Successfully!");
-                loadFoldersData(); // Refresh folder data (Limits, Income, etc.)
-            } catch (err) {
-                console.error("Buy Error:", err);
-                alert("Purchase Failed! Ensure you have USDT and haven't crossed the 12 USDT Daily Limit.");
-            }
-        }
-    </script>
-</body>
-</html>
+                <div class="info-box" style="margin-top: 15px; padding: 10px;">
+                    <h4 style="margin: 0 0 10px 0; color: #aaa; font-size: 14px;">🛒 Sold NFTs History</h4>
+                    <div id="sold-nfts-list" style="max-height: 160px; overflow-y: auto; text-align: left; background: #0b0c10
