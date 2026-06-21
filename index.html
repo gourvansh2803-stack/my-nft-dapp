@@ -1,210 +1,135 @@
-<script>
-    const contractAddress = "0x24ec0Da54E5C70E9ab3289cAA9684DE82bEa4E68";
-    
-    const gameAbi = [
-        "function isRegistered(address) view returns (bool)",
-        "function totalEarned(address) view returns (uint256)",
-        "function teamCount(address) view returns (uint256)",
-        "function dailyInvestment(address) view returns (uint256)",
-        "function lastInvestmentTimestamp(address) view returns (uint256)",
-        "function auctionEndTime() view returns (uint256)",
-        "function usdt() view returns (address)",
-        "function buyNFT(address _referrer) external"
-    ];
-
-    const erc20Abi = [
-        "function approve(address spender, uint256 amount) external returns (bool)",
-        "function allowance(address owner, address spender) external view returns (uint256)"
-    ];
-
-    let provider, signer, gameContract, usdtContract, userAddress;
-
-    // ==========================================
-    // NETWORK SWITCHER (STRICTLY OPBNB)
-    // ==========================================
-    async function enforceOpBNBNetwork() {
-        const opbnbChainId = '0xcc'; // 204 in Hex (opBNB Mainnet)
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NFT Pipeline DApp</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #0b0c10; color: #c5c6c7; text-align: center; padding: 10px; margin: 0; }
+        .container { max-width: 450px; margin: auto; background: #1f2833; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); margin-top: 20px; }
+        h2, h3 { color: #66fcf1; margin-top: 0; }
+        input { width: 85%; padding: 12px; margin: 10px 0; border-radius: 6px; border: 1px solid #45a29e; background: #0b0c10; color: white; }
+        button { width: 95%; padding: 12px; margin: 8px 0; border-radius: 6px; border: none; font-weight: bold; cursor: pointer; font-size: 16px; transition: 0.3s; }
+        .btn-primary { background-color: #45a29e; color: #0b0c10; }
+        .btn-primary:hover { background-color: #66fcf1; }
+        .btn-approve { background-color: #f39c12; color: #fff; }
+        .btn-approve:hover { background-color: #e67e22; }
+        .hidden { display: none !important; }
         
-        const currentChainId = await window.ethereum.request({ method: 'eth_chainId' });
-        if (currentChainId !== opbnbChainId) {
-            try {
-                // Try switching to opBNB
-                await window.ethereum.request({
-                    method: 'wallet_switchEthereumChain',
-                    params: [{ chainId: opbnbChainId }],
-                });
-            } catch (switchError) {
-                // If opBNB is not added to user's MetaMask, add it automatically
-                if (switchError.code === 4902) {
+        .tabs { display: flex; justify-content: space-between; margin-bottom: 20px; background: #0b0c10; border-radius: 8px; padding: 5px; }
+        .tab-btn { background: transparent; color: #c5c6c7; flex: 1; margin: 0; font-size: 14px; padding: 10px; cursor: pointer; border: none; outline: none; }
+        .tab-btn.active { background: #45a29e; color: #0b0c10; border-radius: 6px; font-weight: bold; }
+        
+        .folder { background: #0b0c10; padding: 20px; border-radius: 10px; border: 1px solid #45a29e; }
+        .timer-text { font-size: 28px; color: #66fcf1; font-weight: bold; margin: 10px 0; letter-spacing: 2px; }
+        .info-box { background: #1f2833; padding: 10px; border-radius: 6px; margin-bottom: 10px; }
+        .stats { font-size: 20px; font-weight: bold; color: #fff; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h2>NFT Pipeline Dashboard</h2>
+
+        <div id="auth-section">
+            <button class="btn-primary" id="connect-btn" onclick="connectWallet()">Connect Wallet</button>
+            
+            <div id="signup-box" class="hidden folder">
+                <h3>Sign Up</h3>
+                <p>Register to start your journey</p>
+                <input type="text" id="sponsor-address" placeholder="Enter Sponsor Wallet Address">
+                <p style="font-size: 12px; color: #aaa;">Step 1: Approve USDT | Step 2: Register & Buy</p>
+                <button class="btn-approve" onclick="approveUSDT()">1. Approve USDT</button>
+                <button class="btn-primary" onclick="registerAndBuy()">2. Sign Up & Buy NFT</button>
+            </div>
+        </div>
+
+        <div id="dashboard-section" class="hidden">
+            <div class="info-box" style="font-size: 12px;">
+                Wallet: <span id="user-wallet" style="color:#66fcf1;">...</span>
+            </div>
+
+            <div class="tabs">
+                <button class="tab-btn active" onclick="switchTab(event, 'trading')">Trading</button>
+                <button class="tab-btn" onclick="switchTab(event, 'market')">Market</button>
+                <button class="tab-btn" onclick="switchTab(event, 'income')">Income</button>
+            </div>
+
+            <div id="trading" class="folder">
+                <h3>NFT Status</h3>
+                <div class="info-box">
+                    <p style="color: #ff4c4c; font-weight: bold; font-size: 18px;">NOT FOR SALE</p>
+                    <p style="font-size: 12px;">Time remaining for public auction:</p>
+                    <div class="timer-text" id="nft-timer">00:00:00</div>
+                </div>
+            </div>
+
+            <div id="market" class="folder hidden">
+                <h3>Market & Limit</h3>
+                <div class="info-box">
+                    <p>Daily Limit: <strong>12.00 USDT</strong></p>
+                    <p>Used Limit: <strong id="used-limit" style="color: #ff4c4c;">0.00</strong><strong> USDT</strong></p>
+                    <p style="font-size: 12px;">Limit resets in:</p>
+                    <div class="timer-text" id="limit-timer" style="font-size: 20px; color: #f39c12;">00:00:00</div>
+                </div>
+                
+                <p style="font-size: 12px; color: #aaa;">Step 1: Approve | Step 2: Buy NFT</p>
+                <button class="btn-approve" onclick="approveUSDT()">Approve USDT</button>
+                <button class="btn-primary" onclick="buyNFT()">Buy NFT</button>
+            </div>
+
+            <div id="income" class="folder hidden">
+                <h3>My Earnings</h3>
+                <div class="info-box">
+                    <p>Total Income Earned</p>
+                    <div class="stats" id="total-income">0.00 <span style="font-size:14px; color:#aaa;">USDT</span></div>
+                </div>
+                <div class="info-box">
+                    <p>Total Team Size</p>
+                    <div class="stats" id="team-count" style="color: #66fcf1;">0 <span style="font-size:14px; color:#aaa;">Members</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const contractAddress = "0x24ec0Da54E5C70E9ab3289cAA9684DE82bEa4E68";
+        
+        const gameAbi = [
+            "function isRegistered(address) view returns (bool)",
+            "function totalEarned(address) view returns (uint256)",
+            "function teamCount(address) view returns (uint256)",
+            "function dailyInvestment(address) view returns (uint256)",
+            "function lastInvestmentTimestamp(address) view returns (uint256)",
+            "function auctionEndTime() view returns (uint256)",
+            "function usdt() view returns (address)",
+            "function buyNFT(address _referrer) external"
+        ];
+
+        const erc20Abi = [
+            "function approve(address spender, uint256 amount) external returns (bool)",
+            "function allowance(address owner, address spender) external view returns (uint256)"
+        ];
+
+        let provider, signer, gameContract, usdtContract, userAddress;
+
+        // Force opBNB Network
+        async function enforceOpBNBNetwork() {
+            const opbnbChainId = '0xcc'; // 204 in Hex (opBNB Mainnet)
+            if (!window.ethereum) return;
+            const currentChainId = await window.ethereum.request({ method: 'eth_chainId' });
+            if (currentChainId !== opbnbChainId) {
+                try {
                     await window.ethereum.request({
-                        method: 'wallet_addEthereumChain',
-                        params: [{
-                            chainId: opbnbChainId,
-                            chainName: 'opBNB Mainnet',
-                            nativeCurrency: { name: 'BNB', symbol: 'BNB', decimals: 18 },
-                            rpcUrls: ['https://opbnb-mainnet-rpc.bnbchain.org'],
-                            blockExplorerUrls: ['https://mainnet.opbnbscan.com']
-                        }],
+                        method: 'wallet_switchEthereumChain',
+                        params: [{ chainId: opbnbChainId }],
                     });
-                } else {
-                    throw switchError;
-                }
-            }
-        }
-    }
-
-    // ==========================================
-    // INITIALIZE & CONNECT WALLET
-    // ==========================================
-    async function connectWallet() {
-        if (window.ethereum) {
-            try {
-                // Pehle network check aur switch karo
-                await enforceOpBNBNetwork();
-
-                provider = new ethers.providers.Web3Provider(window.ethereum);
-                await provider.send("eth_requestAccounts", []);
-                signer = provider.getSigner();
-                userAddress = await signer.getAddress();
-                
-                gameContract = new ethers.Contract(contractAddress, gameAbi, signer);
-                
-                // OpBNB Network se USDT ka address nikalo
-                let usdtAddress = await gameContract.usdt();
-                usdtContract = new ethers.Contract(usdtAddress, erc20Abi, signer);
-                
-                document.getElementById("user-wallet").innerText = userAddress.substring(0, 6) + "..." + userAddress.slice(-4);
-                
-                let registered = await gameContract.isRegistered(userAddress);
-                if (registered) {
-                    document.getElementById("auth-section").classList.add("hidden");
-                    document.getElementById("dashboard-section").classList.remove("hidden");
-                    loadDashboardData();
-                } else {
-                    document.getElementById("connect-btn").classList.add("hidden");
-                    document.getElementById("signup-box").classList.remove("hidden");
-                }
-            } catch (error) {
-                console.error(error);
-                alert("Connection ya Network switch fail ho gaya. Please approve opBNB network in MetaMask!");
-            }
-        } else {
-            alert("Please install MetaMask!");
-        }
-    }
-
-    // ==========================================
-    // LOAD DASHBOARD DATA
-    // ==========================================
-    async function loadDashboardData() {
-        // INCOME FOLDER
-        let earned = await gameContract.totalEarned(userAddress);
-        let team = await gameContract.teamCount(userAddress);
-        document.getElementById("total-income").innerText = parseFloat(ethers.utils.formatUnits(earned, 18)).toFixed(4);
-        document.getElementById("team-count").innerText = team.toString();
-
-        // MARKET FOLDER (Limits & Timers)
-        let usedLimit = await gameContract.dailyInvestment(userAddress);
-        let lastInvestTime = await gameContract.lastInvestmentTimestamp(userAddress);
-        let limitResetTime = lastInvestTime.toNumber() + (24 * 3600); 
-
-        if (Math.floor(Date.now() / 1000) > limitResetTime) {
-            document.getElementById("used-limit").innerText = "0.00";
-        } else {
-            document.getElementById("used-limit").innerText = ethers.utils.formatUnits(usedLimit, 18);
-            start24hTimer(limitResetTime);
-        }
-
-        // TRADING FOLDER (36h Timer)
-        let auctionEnd = await gameContract.auctionEndTime();
-        start36hTimer(auctionEnd.toNumber());
-    }
-
-    function start36hTimer(endTimeInSeconds) {
-        setInterval(() => {
-            let now = Math.floor(Date.now() / 1000);
-            let timeLeft = endTimeInSeconds - now;
-            if (timeLeft > 0) {
-                let h = Math.floor(timeLeft / 3600).toString().padStart(2, '0');
-                let m = Math.floor((timeLeft % 3600) / 60).toString().padStart(2, '0');
-                let s = (timeLeft % 60).toString().padStart(2, '0');
-                document.getElementById("nft-timer").innerText = `${h}:${m}:${s}`;
-            } else {
-                document.getElementById("nft-timer").innerText = "IN SALE";
-            }
-        }, 1000);
-    }
-
-    function start24hTimer(endTimeInSeconds) {
-        let timerInterval = setInterval(() => {
-            let now = Math.floor(Date.now() / 1000);
-            let timeLeft = endTimeInSeconds - now;
-            if (timeLeft > 0) {
-                let h = Math.floor(timeLeft / 3600).toString().padStart(2, '0');
-                let m = Math.floor((timeLeft % 3600) / 60).toString().padStart(2, '0');
-                let s = (timeLeft % 60).toString().padStart(2, '0');
-                document.getElementById("limit-timer").innerText = `${h}:${m}:${s}`;
-            } else {
-                document.getElementById("limit-timer").innerText = "00:00:00";
-                document.getElementById("used-limit").innerText = "0.00";
-                clearInterval(timerInterval);
-            }
-        }, 1000);
-    }
-
-    function switchTab(tabId) {
-        document.querySelectorAll('.folder').forEach(el => {
-            if (el.id !== 'signup-box') el.classList.add('hidden');
-        });
-        document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-        document.getElementById(tabId).classList.remove('hidden');
-        event.target.classList.add('active');
-    }
-
-    // ==========================================
-    // WORKING BUTTONS: APPROVE & BUY LOGIC
-    // ==========================================
-    async function approveUSDT() {
-        try {
-            // OpBNB wale USDT ko directly approve de rahe hain
-            let maxApproveAmount = ethers.constants.MaxUint256; 
-            let tx = await usdtContract.approve(contractAddress, maxApproveAmount);
-            alert("Approve request sent to opBNB. Please confirm in MetaMask.");
-            await tx.wait();
-            alert("USDT Approved Successfully on opBNB!");
-        } catch (err) {
-            console.error(err);
-            alert("Approval Failed! Please check your balance or MetaMask popup.");
-        }
-    }
-
-    async function registerAndBuy() {
-        let sponsor = document.getElementById("sponsor-address").value;
-        if(!sponsor) { alert("Please enter Sponsor Address!"); return; }
-        if(!ethers.utils.isAddress(sponsor)) { alert("Invalid Sponsor Address format!"); return; }
-
-        try {
-            let tx = await gameContract.buyNFT(sponsor);
-            alert("Transaction sent to opBNB! Waiting for block confirmation...");
-            await tx.wait();
-            alert("Success! Welcome to the game.");
-            location.reload(); 
-        } catch (err) {
-            console.error(err);
-            alert("Transaction Failed! USDT approve kiya tha?");
-        }
-    }
-
-    async function buyNFT() {
-        try {
-            let tx = await gameContract.buyNFT(ethers.constants.AddressZero);
-            alert("Buy transaction sent to opBNB! Waiting for confirmation...");
-            await tx.wait();
-            alert("NFT Purchased Successfully on opBNB!");
-            loadDashboardData(); 
-        } catch (err) {
-            console.error(err);
-            alert("Purchase Failed! Limit check karo ya USDT Approve karo.");
-        }
-    }
-</script>
+                } catch (switchError) {
+                    if (switchError.code === 4902) {
+                        await window.ethereum.request({
+                            method: 'wallet_addEthereumChain',
+                            params: [{
+                                chainId: opbnbChainId,
+                                chainName: 'opBNB Mainnet',
+                                nativeCurrency: { name: 'BNB', symbol: 'BNB', decimals: 18 },
