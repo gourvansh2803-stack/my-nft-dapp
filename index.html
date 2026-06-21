@@ -8,150 +8,146 @@
     <style>
         body { font-family: 'Segoe UI', sans-serif; background-color: #0b0c10; color: #c5c6c7; text-align: center; padding: 10px; margin: 0; }
         .container { max-width: 450px; margin: auto; background: #1f2833; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); margin-top: 20px; }
-        h2 { color: #66fcf1; }
-        input { width: 85%; padding: 12px; margin: 10px 0; border-radius: 6px; border: 1px solid #45a29e; background: #0b0c10; color: white; text-align: center; }
-        button { width: 95%; padding: 12px; margin: 8px 0; border-radius: 6px; border: none; font-weight: bold; cursor: pointer; background: #45a29e; color: #0b0c10; }
-        .btn-approve { background-color: #f39c12; color: #fff; }
-        .hidden { display: none !important; }
-        .tabs { display: flex; justify-content: space-between; margin-bottom: 20px; background: #0b0c10; border-radius: 8px; padding: 5px; border: 1px solid #45a29e; }
-        .tab-btn { background: transparent; color: #c5c6c7; flex: 1; padding: 10px; cursor: pointer; border: none; }
-        .tab-btn.active { background: #45a29e; color: #0b0c10; border-radius: 6px; font-weight: bold; }
         .folder { background: #0b0c10; padding: 20px; border-radius: 10px; border: 1px solid #45a29e; margin-top: 10px; }
         .info-box { background: #1f2833; padding: 15px; border-radius: 6px; margin-bottom: 15px; border: 1px dashed #45a29e; }
         .timer-text { font-size: 26px; color: #66fcf1; font-weight: bold; }
+        button { width: 95%; padding: 12px; margin: 8px 0; border-radius: 6px; border: none; font-weight: bold; cursor: pointer; background: #45a29e; }
+        .hidden { display: none !important; }
+        .tabs { display: flex; justify-content: space-between; margin-bottom: 20px; background: #0b0c10; padding: 5px; border: 1px solid #45a29e; }
+        .tab-btn { background: transparent; color: #c5c6c7; flex: 1; padding: 10px; cursor: pointer; border: none; }
+        .tab-btn.active { background: #45a29e; color: #0b0c10; font-weight: bold; }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <h2>NFT Pipeline DApp</h2>
-    <div id="auth-section">
-        <div class="folder">
-            <h3>Login / Sign Up</h3>
-            <button onclick="connectWallet()">Connect Wallet</button>
-        </div>
-        <div id="signup-box" class="hidden folder">
-            <h3>New Account</h3>
-            <input type="text" id="sponsor-address" placeholder="Enter Sponsor Address">
-            <button class="btn-approve" onclick="approveUSDT()">1. Approve USDT</button>
-            <button onclick="registerAndBuy()">2. Sign Up & Buy</button>
-        </div>
-    </div>
+    <div class="container">
+        <h2>NFT Pipeline DApp</h2>
 
-    <div id="dashboard-section" class="hidden">
-        <div class="tabs">
-            <button class="tab-btn active" onclick="switchTab(event, 'trading')">Trading</button>
-            <button class="tab-btn" onclick="switchTab(event, 'market')">Market</button>
-            <button class="tab-btn" onclick="switchTab(event, 'income')">Income</button>
-        </div>
-
-        <div id="trading" class="folder">
-            <h3>Trading Area</h3>
-            <div class="info-box">
-                <p>Active NFT: #<span id="active-nft-id">0</span></p>
-                <p>Price: <span id="active-nft-price">0.00</span> USDT</p>
-                <h3 id="nft-status-label">LOADING...</h3>
-                <div class="timer-text" id="nft-timer">--:--:--</div>
+        <div id="auth-section">
+            <div class="folder">
+                <h3>Login</h3>
+                <button onclick="connectWallet()">Connect Wallet</button>
             </div>
-            <h4>🛒 Sold NFTs</h4>
-            <div id="sold-nfts-list" style="max-height: 150px; overflow-y: auto;"></div>
+            <div id="signup-box" class="hidden folder">
+                <h3>Sign Up</h3>
+                <input type="text" id="sponsor-address" placeholder="Sponsor Address">
+                <button onclick="approveUSDT()">1. Approve USDT</button>
+                <button onclick="registerAndBuy()">2. Sign Up & Buy</button>
+            </div>
         </div>
 
-        <div id="market" class="folder hidden">
-            <h3>Market Buy</h3>
-            <p>Daily Limit: 12 USDT</p>
-            <button class="btn-approve" onclick="approveUSDT()">Approve USDT</button>
-            <button onclick="buyNFT()">Buy Active NFT</button>
-        </div>
+        <div id="dashboard-section" class="hidden">
+            <div class="tabs">
+                <button class="tab-btn active" onclick="switchTab(event, 'trading')">Trading</button>
+                <button class="tab-btn" onclick="switchTab(event, 'market')">Market</button>
+                <button class="tab-btn" onclick="switchTab(event, 'income')">Income</button>
+            </div>
 
-        <div id="income" class="folder hidden">
-            <h3>Income</h3>
-            <p>Total: <span id="total-income">0</span> USDT</p>
-            <p>Team: <span id="team-count">0</span> Members</p>
+            <div id="trading" class="folder">
+                <h3>Trading Area</h3>
+                <div class="info-box">
+                    <p>NFT Number: <strong id="active-nft-id">#0</strong></p>
+                    <p>Price: <strong id="active-nft-price">0.00</strong> USDT</p>
+                    <h3 id="nft-status-label" style="color: #66fcf1;">LOADING...</h3>
+                    <div class="timer-text" id="nft-timer">--:--:--</div>
+                </div>
+                <h4>🛒 Sold NFTs</h4>
+                <div id="sold-nfts-list"></div>
+            </div>
+
+            <div id="market" class="folder hidden">
+                <h3>Market</h3>
+                <button onclick="approveUSDT()">Approve USDT</button>
+                <button onclick="buyNFT()">Buy Active NFT</button>
+            </div>
+
+            <div id="income" class="folder hidden">
+                <h3>Income</h3>
+                <p>Total Earned: <span id="total-income">0</span> USDT</p>
+            </div>
         </div>
     </div>
-</div>
 
-<script>
-    const contractAddress = "0x24ec0Da54E5C70E9ab3289cAA9684DE82bEa4E68";
-    const gameAbi = ["function isRegistered(address) view returns (bool)", "function totalEarned(address) view returns (uint256)", "function teamCount(address) view returns (uint256)", "function activeNftIndex() view returns (uint256)", "function nfts(uint256) view returns (address, uint256)", "function auctionEndTime() view returns (uint256)", "function lastInvestmentTimestamp(address) view returns (uint256)", "function usdt() view returns (address)", "function buyNFT(address) external"];
-    const erc20Abi = ["function approve(address, uint256) external returns (bool)"];
+    <script>
+        const contractAddress = "0x24ec0Da54E5C70E9ab3289cAA9684DE82bEa4E68";
+        const gameAbi = ["function isRegistered(address) view returns (bool)", "function totalEarned(address) view returns (uint256)", "function activeNftIndex() view returns (uint256)", "function nfts(uint256) view returns (address, uint256)", "function auctionEndTime() view returns (uint256)", "function lastInvestmentTimestamp(address) view returns (uint256)", "function usdt() view returns (address)", "function buyNFT(address) external"];
+        const erc20Abi = ["function approve(address, uint256) external returns (bool)"];
 
-    let provider, signer, gameContract, usdtContract, userAddress;
+        let provider, signer, gameContract, usdtContract, userAddress;
 
-    async function connectWallet() {
-        provider = new ethers.providers.Web3Provider(window.ethereum);
-        await provider.send("eth_requestAccounts", []);
-        signer = provider.getSigner();
-        userAddress = await signer.getAddress();
-        gameContract = new ethers.Contract(contractAddress, gameAbi, signer);
-        let usdtAddress = await gameContract.usdt();
-        usdtContract = new ethers.Contract(usdtAddress, erc20Abi, signer);
+        async function connectWallet() {
+            provider = new ethers.providers.Web3Provider(window.ethereum);
+            await provider.send("eth_requestAccounts", []);
+            signer = provider.getSigner();
+            userAddress = await signer.getAddress();
+            gameContract = new ethers.Contract(contractAddress, gameAbi, signer);
+            let usdtAddress = await gameContract.usdt();
+            usdtContract = new ethers.Contract(usdtAddress, erc20Abi, signer);
 
-        let reg = await gameContract.isRegistered(userAddress);
-        if(reg) {
-            document.getElementById("auth-section").classList.add("hidden");
-            document.getElementById("dashboard-section").classList.remove("hidden");
-            loadData();
-        } else {
-            document.getElementById("connect-btn").classList.add("hidden");
-            document.getElementById("signup-box").classList.remove("hidden");
-        }
-    }
-
-    async function loadData() {
-        let isReg = await gameContract.isRegistered(userAddress);
-        let lastTime = await gameContract.lastInvestmentTimestamp(userAddress);
-        let labelEl = document.getElementById("nft-status-label");
-        let timerEl = document.getElementById("nft-timer");
-
-        // NFT Info
-        let activeIdx = await gameContract.activeNftIndex();
-        document.getElementById("active-nft-id").innerText = activeIdx.toString();
-        let nft = await gameContract.nfts(activeIdx);
-        document.getElementById("active-nft-price").innerText = ethers.utils.formatUnits(nft.currentPrice, 18);
-
-        // Logic: NO NFT PURCHASED check
-        if (!isReg || lastTime.toNumber() === 0) {
-            labelEl.innerText = "NO NFT PURCHASED";
-            timerEl.innerText = "--:--:--";
-        } else {
-            let end = await gameContract.auctionEndTime();
-            startTimer(end.toNumber(), labelEl, timerEl);
-        }
-
-        // History
-        let html = "";
-        for(let i = activeIdx.toNumber() - 1; i >= 0; i--) {
-            let n = await gameContract.nfts(i);
-            html += `<p>NFT #${i} | ${ethers.utils.formatUnits(n.currentPrice, 18)} USDT | SOLD</p>`;
-        }
-        document.getElementById("sold-nfts-list").innerHTML = html || "No history";
-    }
-
-    function startTimer(end, label, timer) {
-        setInterval(() => {
-            let left = end - Math.floor(Date.now() / 1000);
-            if(left > 0) {
-                timer.innerText = new Date(left * 1000).toISOString().substr(11, 8);
-                label.innerText = "NOT FOR SALE";
-                label.style.color = "#ff4c4c";
+            if(await gameContract.isRegistered(userAddress)) {
+                document.getElementById("auth-section").classList.add("hidden");
+                document.getElementById("dashboard-section").classList.remove("hidden");
+                loadData();
             } else {
-                timer.innerText = "00:00:00";
-                label.innerText = "IN SALE";
-                label.style.color = "#66fcf1";
+                document.getElementById("signup-box").classList.remove("hidden");
             }
-        }, 1000);
-    }
+        }
 
-    function switchTab(e, id) {
-        document.querySelectorAll('.folder').forEach(f => f.classList.add('hidden'));
-        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-        document.getElementById(id).classList.remove('hidden');
-        e.currentTarget.classList.add('active');
-    }
-    
-    // ... (Approve/Buy functions)
-</script>
+        async function loadData() {
+            let activeIdx = await gameContract.activeNftIndex();
+            let lastInvest = await gameContract.lastInvestmentTimestamp(userAddress);
+            let label = document.getElementById("nft-status-label");
+            
+            // Check agar user ne buy kiya hai
+            if (lastInvest.toNumber() === 0) {
+                label.innerText = "NO NFT PURCHASED";
+                document.getElementById("nft-timer").innerText = "--:--:--";
+            } else {
+                let nft = await gameContract.nfts(activeIdx);
+                document.getElementById("active-nft-id").innerText = "#" + activeIdx.toString();
+                document.getElementById("active-nft-price").innerText = ethers.utils.formatUnits(nft.currentPrice, 18);
+                label.innerText = "IN SALE";
+                let end = await gameContract.auctionEndTime();
+                startTimer(end.toNumber());
+            }
+
+            // History
+            let html = "";
+            for(let i = activeIdx.toNumber() - 1; i >= 0; i--) {
+                let n = await gameContract.nfts(i);
+                html += `<div style="padding:5px; border-bottom:1px solid #1f2833;">NFT #${i} | ${ethers.utils.formatUnits(n.currentPrice, 18)} USDT | <span style="color:red">SOLD</span></div>`;
+            }
+            document.getElementById("sold-nfts-list").innerHTML = html || "No history";
+        }
+
+        function startTimer(end) {
+            setInterval(() => {
+                let left = end - Math.floor(Date.now() / 1000);
+                if(left > 0) document.getElementById("nft-timer").innerText = new Date(left * 1000).toISOString().substr(11, 8);
+                else document.getElementById("nft-timer").innerText = "00:00:00";
+            }, 1000);
+        }
+
+        function switchTab(e, id) {
+            document.querySelectorAll('.folder').forEach(f => f.classList.add('hidden'));
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById(id).classList.remove('hidden');
+            e.currentTarget.classList.add('active');
+        }
+
+        async function approveUSDT() { 
+            let tx = await usdtContract.approve(contractAddress, ethers.constants.MaxUint256);
+            await tx.wait(); alert("Approved!"); 
+        }
+        async function registerAndBuy() { 
+            let s = document.getElementById("sponsor-address").value;
+            let tx = await gameContract.buyNFT(s);
+            await tx.wait(); location.reload(); 
+        }
+        async function buyNFT() { 
+            let tx = await gameContract.buyNFT(ethers.constants.AddressZero);
+            await tx.wait(); loadData(); 
+        }
+    </script>
 </body>
 </html>
