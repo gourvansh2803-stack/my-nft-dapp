@@ -1,75 +1,210 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>P2P Pipeline Dashboard</title>
-    <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
-    <script src="https://cdn.tailwindcss.com"></script>
-</head>
-<body class="bg-gray-900 text-white p-6">
-    <div class="max-w-4xl mx-auto">
-        <h1 class="text-3xl font-bold mb-6 text-center">P2P NFT Pipeline Dashboard</h1>
+<script>
+    const contractAddress = "0x24ec0Da54E5C70E9ab3289cAA9684DE82bEa4E68";
+    
+    const gameAbi = [
+        "function isRegistered(address) view returns (bool)",
+        "function totalEarned(address) view returns (uint256)",
+        "function teamCount(address) view returns (uint256)",
+        "function dailyInvestment(address) view returns (uint256)",
+        "function lastInvestmentTimestamp(address) view returns (uint256)",
+        "function auctionEndTime() view returns (uint256)",
+        "function usdt() view returns (address)",
+        "function buyNFT(address _referrer) external"
+    ];
+
+    const erc20Abi = [
+        "function approve(address spender, uint256 amount) external returns (bool)",
+        "function allowance(address owner, address spender) external view returns (uint256)"
+    ];
+
+    let provider, signer, gameContract, usdtContract, userAddress;
+
+    // ==========================================
+    // NETWORK SWITCHER (STRICTLY OPBNB)
+    // ==========================================
+    async function enforceOpBNBNetwork() {
+        const opbnbChainId = '0xcc'; // 204 in Hex (opBNB Mainnet)
         
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-            <div class="bg-gray-800 p-4 rounded-lg"> <p class="text-gray-400 text-sm">Team Size</p> <p id="teamSize" class="text-xl font-bold">0</p> </div>
-            <div class="bg-gray-800 p-4 rounded-lg"> <p class="text-gray-400 text-sm">Total Earned</p> <p id="totalEarned" class="text-xl font-bold">0 USDT</p> </div>
-            <div class="bg-gray-800 p-4 rounded-lg"> <p class="text-gray-400 text-sm">In Sale / Queue</p> <p id="nftStatus" class="text-xl font-bold">1 / 0</p> </div>
-            <div class="bg-gray-800 p-4 rounded-lg"> <p class="text-gray-400 text-sm">My Investment</p> <p id="myInvested" class="text-xl font-bold">0/12</p> </div>
-        </div>
-
-        <div class="bg-gray-800 p-6 rounded-lg text-center">
-            <button id="connectBtn" class="bg-blue-600 px-6 py-2 rounded mb-4">Connect Wallet</button>
-            <input id="refInput" type="text" placeholder="Referrer Address" class="w-full p-2 mb-4 bg-gray-700 rounded text-sm text-center">
-            <button onclick="handleBuy()" class="w-full bg-green-600 hover:bg-green-700 p-3 rounded font-bold">Approve & Buy NFT</button>
-        </div>
-    </div>
-
-    <script>
-        const gameAddr = "0x24ec0Da54E5C70E9ab3289cAA9684DE82bEa4E68";
-        const usdtAddr = "0x9e5aac1ba1a2e6aed6b32689dfcf62a509ca96f3";
-        const abi = [
-            "function buyNFT(address _referrer) external",
-            "function teamCount(address) view returns (uint256)",
-            "function totalEarned(address) view returns (uint256)",
-            "function dailyInvestment(address) view returns (uint256)",
-            "function getQueueLength() view returns (uint256)",
-            "function activeNftIndex() view returns (uint256)"
-        ];
-
-        let signer, contract;
-
-        document.getElementById('connectBtn').onclick = async () => {
-            if (!window.ethereum) return alert("MetaMask install karo!");
-            const provider = new ethers.providers.Web3Provider(window.ethereum);
-            await provider.send("eth_requestAccounts", []);
-            signer = provider.getSigner();
-            contract = new ethers.Contract(gameAddr, abi, signer);
-            updateDashboard();
-        };
-
-        async function updateDashboard() {
-            const user = await signer.getAddress();
-            const [team, earned, invest, total, active] = await Promise.all([
-                contract.teamCount(user), contract.totalEarned(user),
-                contract.dailyInvestment(user), contract.getQueueLength(), contract.activeNftIndex()
-            ]);
-            document.getElementById("teamSize").innerText = team.toString();
-            document.getElementById("totalEarned").innerText = ethers.utils.formatEther(earned) + " USDT";
-            document.getElementById("myInvested").innerText = ethers.utils.formatEther(invest) + "/12";
-            document.getElementById("nftStatus").innerText = `1 / ${total - 1}`;
-        }
-
-        async function handleBuy() {
-            const usdt = new ethers.Contract(usdtAddr, ["function approve(address,uint256)"], signer);
-            const ref = document.getElementById("refInput").value || "0x70eEFEd646d12AB2A352D61aFc40947F5187797c";
+        const currentChainId = await window.ethereum.request({ method: 'eth_chainId' });
+        if (currentChainId !== opbnbChainId) {
             try {
-                const tx1 = await usdt.approve(gameAddr, ethers.utils.parseUnits("1000", 18));
-                await tx1.wait();
-                const tx2 = await contract.buyNFT(ref);
-                await tx2.wait();
-                alert("Transaction Success!");
-            } catch(e) { alert("Error: " + e.message); }
+                // Try switching to opBNB
+                await window.ethereum.request({
+                    method: 'wallet_switchEthereumChain',
+                    params: [{ chainId: opbnbChainId }],
+                });
+            } catch (switchError) {
+                // If opBNB is not added to user's MetaMask, add it automatically
+                if (switchError.code === 4902) {
+                    await window.ethereum.request({
+                        method: 'wallet_addEthereumChain',
+                        params: [{
+                            chainId: opbnbChainId,
+                            chainName: 'opBNB Mainnet',
+                            nativeCurrency: { name: 'BNB', symbol: 'BNB', decimals: 18 },
+                            rpcUrls: ['https://opbnb-mainnet-rpc.bnbchain.org'],
+                            blockExplorerUrls: ['https://mainnet.opbnbscan.com']
+                        }],
+                    });
+                } else {
+                    throw switchError;
+                }
+            }
         }
-    </script>
-</body>
-</html>
+    }
+
+    // ==========================================
+    // INITIALIZE & CONNECT WALLET
+    // ==========================================
+    async function connectWallet() {
+        if (window.ethereum) {
+            try {
+                // Pehle network check aur switch karo
+                await enforceOpBNBNetwork();
+
+                provider = new ethers.providers.Web3Provider(window.ethereum);
+                await provider.send("eth_requestAccounts", []);
+                signer = provider.getSigner();
+                userAddress = await signer.getAddress();
+                
+                gameContract = new ethers.Contract(contractAddress, gameAbi, signer);
+                
+                // OpBNB Network se USDT ka address nikalo
+                let usdtAddress = await gameContract.usdt();
+                usdtContract = new ethers.Contract(usdtAddress, erc20Abi, signer);
+                
+                document.getElementById("user-wallet").innerText = userAddress.substring(0, 6) + "..." + userAddress.slice(-4);
+                
+                let registered = await gameContract.isRegistered(userAddress);
+                if (registered) {
+                    document.getElementById("auth-section").classList.add("hidden");
+                    document.getElementById("dashboard-section").classList.remove("hidden");
+                    loadDashboardData();
+                } else {
+                    document.getElementById("connect-btn").classList.add("hidden");
+                    document.getElementById("signup-box").classList.remove("hidden");
+                }
+            } catch (error) {
+                console.error(error);
+                alert("Connection ya Network switch fail ho gaya. Please approve opBNB network in MetaMask!");
+            }
+        } else {
+            alert("Please install MetaMask!");
+        }
+    }
+
+    // ==========================================
+    // LOAD DASHBOARD DATA
+    // ==========================================
+    async function loadDashboardData() {
+        // INCOME FOLDER
+        let earned = await gameContract.totalEarned(userAddress);
+        let team = await gameContract.teamCount(userAddress);
+        document.getElementById("total-income").innerText = parseFloat(ethers.utils.formatUnits(earned, 18)).toFixed(4);
+        document.getElementById("team-count").innerText = team.toString();
+
+        // MARKET FOLDER (Limits & Timers)
+        let usedLimit = await gameContract.dailyInvestment(userAddress);
+        let lastInvestTime = await gameContract.lastInvestmentTimestamp(userAddress);
+        let limitResetTime = lastInvestTime.toNumber() + (24 * 3600); 
+
+        if (Math.floor(Date.now() / 1000) > limitResetTime) {
+            document.getElementById("used-limit").innerText = "0.00";
+        } else {
+            document.getElementById("used-limit").innerText = ethers.utils.formatUnits(usedLimit, 18);
+            start24hTimer(limitResetTime);
+        }
+
+        // TRADING FOLDER (36h Timer)
+        let auctionEnd = await gameContract.auctionEndTime();
+        start36hTimer(auctionEnd.toNumber());
+    }
+
+    function start36hTimer(endTimeInSeconds) {
+        setInterval(() => {
+            let now = Math.floor(Date.now() / 1000);
+            let timeLeft = endTimeInSeconds - now;
+            if (timeLeft > 0) {
+                let h = Math.floor(timeLeft / 3600).toString().padStart(2, '0');
+                let m = Math.floor((timeLeft % 3600) / 60).toString().padStart(2, '0');
+                let s = (timeLeft % 60).toString().padStart(2, '0');
+                document.getElementById("nft-timer").innerText = `${h}:${m}:${s}`;
+            } else {
+                document.getElementById("nft-timer").innerText = "IN SALE";
+            }
+        }, 1000);
+    }
+
+    function start24hTimer(endTimeInSeconds) {
+        let timerInterval = setInterval(() => {
+            let now = Math.floor(Date.now() / 1000);
+            let timeLeft = endTimeInSeconds - now;
+            if (timeLeft > 0) {
+                let h = Math.floor(timeLeft / 3600).toString().padStart(2, '0');
+                let m = Math.floor((timeLeft % 3600) / 60).toString().padStart(2, '0');
+                let s = (timeLeft % 60).toString().padStart(2, '0');
+                document.getElementById("limit-timer").innerText = `${h}:${m}:${s}`;
+            } else {
+                document.getElementById("limit-timer").innerText = "00:00:00";
+                document.getElementById("used-limit").innerText = "0.00";
+                clearInterval(timerInterval);
+            }
+        }, 1000);
+    }
+
+    function switchTab(tabId) {
+        document.querySelectorAll('.folder').forEach(el => {
+            if (el.id !== 'signup-box') el.classList.add('hidden');
+        });
+        document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+        document.getElementById(tabId).classList.remove('hidden');
+        event.target.classList.add('active');
+    }
+
+    // ==========================================
+    // WORKING BUTTONS: APPROVE & BUY LOGIC
+    // ==========================================
+    async function approveUSDT() {
+        try {
+            // OpBNB wale USDT ko directly approve de rahe hain
+            let maxApproveAmount = ethers.constants.MaxUint256; 
+            let tx = await usdtContract.approve(contractAddress, maxApproveAmount);
+            alert("Approve request sent to opBNB. Please confirm in MetaMask.");
+            await tx.wait();
+            alert("USDT Approved Successfully on opBNB!");
+        } catch (err) {
+            console.error(err);
+            alert("Approval Failed! Please check your balance or MetaMask popup.");
+        }
+    }
+
+    async function registerAndBuy() {
+        let sponsor = document.getElementById("sponsor-address").value;
+        if(!sponsor) { alert("Please enter Sponsor Address!"); return; }
+        if(!ethers.utils.isAddress(sponsor)) { alert("Invalid Sponsor Address format!"); return; }
+
+        try {
+            let tx = await gameContract.buyNFT(sponsor);
+            alert("Transaction sent to opBNB! Waiting for block confirmation...");
+            await tx.wait();
+            alert("Success! Welcome to the game.");
+            location.reload(); 
+        } catch (err) {
+            console.error(err);
+            alert("Transaction Failed! USDT approve kiya tha?");
+        }
+    }
+
+    async function buyNFT() {
+        try {
+            let tx = await gameContract.buyNFT(ethers.constants.AddressZero);
+            alert("Buy transaction sent to opBNB! Waiting for confirmation...");
+            await tx.wait();
+            alert("NFT Purchased Successfully on opBNB!");
+            loadDashboardData(); 
+        } catch (err) {
+            console.error(err);
+            alert("Purchase Failed! Limit check karo ya USDT Approve karo.");
+        }
+    }
+</script>
