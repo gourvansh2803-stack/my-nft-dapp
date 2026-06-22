@@ -3,315 +3,202 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NFT Pipeline DApp</title>
+    <title>NFTradex Pro</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #0b0c10; color: #c5c6c7; text-align: center; padding: 10px; margin: 0; }
-        .container { max-width: 450px; margin: auto; background: #1f2833; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); margin-top: 20px; }
-        h2 { color: #66fcf1; margin-top: 0; font-size: 24px; }
-        h3 { color: #fff; margin-top: 0; }
-        input { width: 85%; padding: 12px; margin: 10px 0; border-radius: 6px; border: 1px solid #45a29e; background: #0b0c10; color: white; text-align: center; }
-        button { width: 95%; padding: 12px; margin: 8px 0; border-radius: 6px; border: none; font-weight: bold; cursor: pointer; font-size: 16px; transition: 0.3s; }
+        /* Modern Dark Theme Variables */
+        :root {
+            --bg-main: #050b14;
+            --bg-card: #111a28;
+            --neon-cyan: #00f0ff;
+            --neon-blue: #0066ff;
+            --neon-orange: #ffaa00;
+            --text-main: #e2e8f0;
+            --text-muted: #94a3b8;
+        }
+
+        body { 
+            font-family: 'Segoe UI', system-ui, sans-serif; 
+            background-color: #000; 
+            color: var(--text-main); 
+            margin: 0; 
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        /* Mobile App Container */
+        .app-container { 
+            width: 100%; 
+            max-width: 400px; 
+            height: 100vh;
+            max-height: 850px;
+            background: var(--bg-main); 
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 0 40px rgba(0, 102, 255, 0.2);
+        }
+
+        @media (min-width: 450px) {
+            .app-container { height: 90vh; border-radius: 20px; border: 1px solid #1e293b; }
+        }
+
+        /* Header */
+        .app-header {
+            padding: 20px;
+            text-align: center;
+            background: linear-gradient(180deg, var(--bg-card) 0%, transparent 100%);
+            border-bottom: 1px solid rgba(0, 240, 255, 0.1);
+        }
+        .app-header h2 { margin: 0; font-size: 22px; color: var(--neon-cyan); letter-spacing: 1px; text-transform: uppercase; }
+        .wallet-status { font-size: 12px; color: var(--text-muted); margin-top: 5px; }
+
+        /* Main Content Area */
+        .content-area {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            padding-bottom: 80px; /* Space for bottom nav */
+        }
+
+        /* Folders / Cards */
+        .folder { 
+            background: var(--bg-card); 
+            padding: 20px; 
+            border-radius: 16px; 
+            border: 1px solid rgba(255, 255, 255, 0.05); 
+            margin-bottom: 15px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+            animation: fadeIn 0.4s ease-in-out;
+        }
         
-        .btn-primary { background-color: #45a29e; color: #0b0c10; }
-        .btn-primary:hover { background-color: #66fcf1; }
-        .btn-approve { background-color: #f39c12; color: #fff; }
+        .info-box { 
+            background: rgba(0, 0, 0, 0.4); 
+            padding: 15px; 
+            border-radius: 12px; 
+            margin-bottom: 15px; 
+            border-left: 3px solid var(--neon-cyan); 
+        }
+
+        .timer-text { font-size: 28px; color: var(--neon-cyan); font-weight: 800; margin: 10px 0; letter-spacing: 2px; text-align: center; text-shadow: 0 0 10px rgba(0, 240, 255, 0.4); }
+
+        /* Inputs & Buttons */
+        input { 
+            width: 100%; box-sizing: border-box; padding: 14px; margin: 10px 0; 
+            border-radius: 8px; border: 1px solid #1e293b; 
+            background: #0f172a; color: white; text-align: center; outline: none;
+        }
+        input:focus { border-color: var(--neon-cyan); box-shadow: 0 0 8px rgba(0, 240, 255, 0.2); }
+
+        button { 
+            width: 100%; padding: 14px; margin: 8px 0; border-radius: 8px; 
+            border: none; font-weight: 700; font-size: 16px; cursor: pointer; 
+            transition: all 0.3s; text-transform: uppercase; letter-spacing: 1px;
+        }
+        .btn-primary { background: linear-gradient(90deg, var(--neon-blue), var(--neon-cyan)); color: #000; box-shadow: 0 4px 15px rgba(0, 240, 255, 0.3); }
+        .btn-primary:active { transform: scale(0.98); box-shadow: none; }
+        .btn-approve { background: transparent; border: 1px solid var(--neon-orange); color: var(--neon-orange); }
+
+        /* Bottom Navigation Bar */
+        .bottom-nav {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            background: var(--bg-card);
+            display: flex;
+            justify-content: space-around;
+            padding: 15px 0;
+            border-top: 1px solid rgba(255,255,255,0.05);
+            box-shadow: 0 -5px 20px rgba(0,0,0,0.5);
+            z-index: 10;
+        }
+        .nav-item {
+            color: var(--text-muted);
+            background: transparent;
+            border: none;
+            font-size: 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+            width: 25%;
+            padding: 0;
+            margin: 0;
+            text-transform: none;
+            font-weight: 500;
+        }
+        .nav-item span.icon { font-size: 20px; }
+        .nav-item.active { color: var(--neon-cyan); text-shadow: 0 0 8px rgba(0, 240, 255, 0.5); }
+
+        /* Utility */
         .hidden { display: none !important; }
-        
-        .tabs { display: flex; justify-content: space-between; margin-bottom: 20px; background: #0b0c10; border-radius: 8px; padding: 5px; border: 1px solid #45a29e; }
-        .tab-btn { background: transparent; color: #c5c6c7; flex: 1; padding: 10px; cursor: pointer; border: none; font-size: 15px; }
-        .tab-btn.active { background: #45a29e; color: #0b0c10; border-radius: 6px; font-weight: bold; }
-        
-        .folder { background: #0b0c10; padding: 20px; border-radius: 10px; border: 1px solid #45a29e; margin-top: 10px; }
-        .info-box { background: #1f2833; padding: 15px; border-radius: 6px; margin-bottom: 15px; border: 1px dashed #45a29e; }
-        .timer-text { font-size: 26px; color: #66fcf1; font-weight: bold; margin: 10px 0; letter-spacing: 2px; }
-        
-        #sold-nfts-list { max-height: 160px; overflow-y: auto; text-align: left; background: #0b0c10; padding: 10px; border-radius: 6px; border: 1px solid #45a29e; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* Loader */
+        .loader-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(5, 11, 20, 0.9); z-index: 50;
+            display: flex; justify-content: center; align-items: center;
+        }
+        .spinner {
+            width: 40px; height: 40px;
+            border: 4px solid rgba(0, 240, 255, 0.2);
+            border-top-color: var(--neon-cyan);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
 
-    <div class="container">
-        <h2>NFT Pipeline DApp</h2>
-
-        <div id="auth-section">
-            <div class="folder">
-                <h3>Welcome to the Game</h3>
-                <p style="font-size: 14px;">Connect your wallet to Login or Sign Up</p>
-                <button class="btn-primary" id="connect-btn" onclick="connectWallet()">Connect Wallet (Login)</button>
-            </div>
-            
-            <div id="signup-box" class="hidden folder">
-                <h3 style="color: #f39c12;">New Account Sign Up</h3>
-                <p style="font-size: 13px;">Enter Sponsor Wallet Address:</p>
-                <input type="text" id="sponsor-address" placeholder="0x123...abc">
-                <p style="font-size: 12px; color: #aaa;">Step 1: Approve | Step 2: Sign Up</p>
-                <button class="btn-approve" onclick="approveUSDT()">1. Approve USDT</button>
-                <button class="btn-primary" onclick="registerAndBuy()">2. Sign Up & Buy NFT</button>
-            </div>
-        </div>
-
-        <div id="dashboard-section" class="hidden">
-            <div style="font-size: 13px; margin-bottom: 15px; background: #1f2833; padding: 10px; border-radius: 8px;">
-                Connected: <span id="user-wallet" style="color:#66fcf1; font-weight: bold;">...</span>
-            </div>
-
-            <div class="tabs">
-                <button class="tab-btn active" onclick="switchTab(event, 'trading')">Trading</button>
-                <button class="tab-btn" onclick="switchTab(event, 'market')">Market</button>
-                <button class="tab-btn" onclick="switchTab(event, 'income')">Income</button>
-            </div>
-
-            <div id="trading" class="folder">
-                <h3>Trading Area</h3>
-                
-                <div class="info-box" style="border-color: #f39c12;">
-                    <h4 style="margin: 0; color: #f39c12;">🎯 Current Active NFT</h4>
-                    <p style="margin: 8px 0; color: #fff;">NFT Number: <strong style="color: #66fcf1;">#<span id="active-nft-id">0</span></strong></p>
-                    <p style="margin: 8px 0; color: #fff;">Price: <strong style="color:#66fcf1;"><span id="active-nft-price">0.00</span> USDT</strong></p>
-                    <hr style="border-color: #45a29e; opacity: 0.3;">
-                    <h3 id="nft-status-label" style="margin: 10px 0;">LOADING...</h3>
-                    <div class="timer-text" id="nft-timer">00:00:00</div>
-                </div>
-
-                <div class="info-box">
-                    <h4 style="margin: 0 0 10px 0; color: #aaa;">🛒 Sold NFTs History</h4>
-                    <div id="sold-nfts-list">Loading history...</div>
-                </div>
-            </div>
-
-            <div id="market" class="folder hidden">
-                <h3>Market</h3>
-                <div class="info-box">
-                    <p>Daily Limit: <strong style="color: #66fcf1;">12.00 USDT</strong></p>
-                    <p>Used Limit: <strong id="used-limit" style="color:#ff4c4c;">0.00</strong><strong> USDT</strong></p>
-                    <hr style="border-color: #45a29e; opacity: 0.3;">
-                    <p style="font-size: 12px; color: #aaa; margin: 0;">Limit Resets In (24h Timer):</p>
-                    <div class="timer-text" id="limit-timer" style="color: #f39c12;">00:00:00</div>
-                </div>
-                <button class="btn-approve" onclick="approveUSDT()">Approve USDT Allowance</button>
-                <button class="btn-primary" onclick="buyNFT()">Buy NFT</button>
-            </div>
-
-            <div id="income" class="folder hidden">
-                <h3>Income & Team</h3>
-                <div class="info-box">
-                    <p style="color: #aaa;">Total Earned Income</p>
-                    <div style="font-size: 24px; font-weight: bold;" id="total-income">0.00 <span style="font-size:14px; color:#66fcf1;">USDT</span></div>
-                </div>
-                <div class="info-box">
-                    <p style="color: #aaa;">Total Team Size</p>
-                    <div style="font-size: 24px; font-weight: bold; color: #f39c12;" id="team-count">0 <span style="font-size:14px; color:#aaa;">Members</span></div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        const contractAddress = "0x24ec0Da54E5C70E9ab3289cAA9684DE82bEa4E68";
+    <div class="app-container">
         
-        const gameAbi = [
-            "function isRegistered(address) view returns (bool)",
-            "function totalEarned(address) view returns (uint256)",
-            "function teamCount(address) view returns (uint256)",
-            "function dailyInvestment(address) view returns (uint256)",
-            "function lastInvestmentTimestamp(address) view returns (uint256)",
-            "function auctionEndTime() view returns (uint256)",
-            "function activeNftIndex() view returns (uint256)",
-            "function nfts(uint256) view returns (address owner, uint256 currentPrice)",
-            "function usdt() view returns (address)",
-            "function buyNFT(address _referrer) external"
-        ];
+        <header class="app-header">
+            <h2>NFT Pipeline</h2>
+            <div class="wallet-status" id="wallet-status">🔴 Not Connected</div>
+        </header>
 
-        const erc20Abi = [
-            "function approve(address spender, uint256 amount) external returns (bool)",
-            "function allowance(address owner, address spender) external view returns (uint256)"
-        ];
+        <div id="loader" class="loader-overlay hidden">
+            <div class="spinner"></div>
+        </div>
 
-        let provider, signer, gameContract, usdtContract, userAddress;
+        <main class="content-area">
 
-        async function setupOpBNB() {
-            const opbnbChainId = '0xcc'; 
-            const currentChainId = await window.ethereum.request({ method: 'eth_chainId' });
-            if (currentChainId !== opbnbChainId) {
-                try {
-                    await window.ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: opbnbChainId }] });
-                } catch (error) {
-                    if (error.code === 4902) {
-                        await window.ethereum.request({
-                            method: 'wallet_addEthereumChain',
-                            params: [{ chainId: opbnbChainId, chainName: 'opBNB Mainnet', nativeCurrency: { name: 'BNB', symbol: 'BNB', decimals: 18 }, rpcUrls: ['https://opbnb-mainnet-rpc.bnbchain.org'], blockExplorerUrls: ['https://mainnet.opbnbscan.com'] }]
-                        });
-                    }
-                }
-            }
-        }
-
-        async function connectWallet() {
-            if (window.ethereum) {
-                try {
-                    provider = new ethers.providers.Web3Provider(window.ethereum);
-                    await provider.send("eth_requestAccounts", []);
-                    await setupOpBNB();
-                    
-                    provider = new ethers.providers.Web3Provider(window.ethereum);
-                    signer = provider.getSigner();
-                    userAddress = await signer.getAddress();
-                    
-                    gameContract = new ethers.Contract(contractAddress, gameAbi, signer);
-                    let usdtAddress = await gameContract.usdt();
-                    usdtContract = new ethers.Contract(usdtAddress, erc20Abi, signer);
-                    
-                    document.getElementById("user-wallet").innerText = userAddress.substring(0, 6) + "..." + userAddress.slice(-4);
-                    
-                    let registered = await gameContract.isRegistered(userAddress);
-                    if (registered) {
-                        document.getElementById("auth-section").classList.add("hidden");
-                        document.getElementById("dashboard-section").classList.remove("hidden");
-                        loadFoldersData();
-                    } else {
-                        document.getElementById("connect-btn").classList.add("hidden");
-                        document.getElementById("signup-box").classList.remove("hidden");
-                    }
-                } catch (error) {
-                    console.error("Connection error:", error);
-                    alert("Connection Failed! Ensure MetaMask is connected.");
-                }
-            } else {
-                alert("Please open this link in MetaMask Browser!");
-            }
-        }
-
-        async function loadFoldersData() {
-            try {
-                // Folder 3: Income
-                let earned = await gameContract.totalEarned(userAddress);
-                let team = await gameContract.teamCount(userAddress);
-                document.getElementById("total-income").innerText = parseFloat(ethers.utils.formatUnits(earned, 18)).toFixed(4);
-                document.getElementById("team-count").innerText = team.toString();
-
-                // Folder 2: Market
-                let usedLimit = await gameContract.dailyInvestment(userAddress);
-                let lastInvestTime = await gameContract.lastInvestmentTimestamp(userAddress);
-                let limitResetTime = lastInvestTime.toNumber() + (24 * 3600); 
+            <div id="auth-section" class="folder">
+                <div style="text-align: center; margin-bottom: 20px;">
+                    <div style="font-size: 40px; margin-bottom: 10px;">🛡️</div>
+                    <h3 style="margin: 0;">Welcome to the Game</h3>
+                    <p style="color: var(--text-muted); font-size: 13px;">Secure your assets on Web3</p>
+                </div>
+                <button class="btn-primary" id="connect-btn" onclick="connectWallet()">Connect Wallet</button>
                 
-                if (Math.floor(Date.now() / 1000) > limitResetTime) {
-                    document.getElementById("used-limit").innerText = "0.00";
-                    document.getElementById("limit-timer").innerText = "00:00:00";
-                } else {
-                    document.getElementById("used-limit").innerText = parseFloat(ethers.utils.formatUnits(usedLimit, 18)).toFixed(2);
-                    start24hTimer(limitResetTime);
-                }
+                <div id="signup-box" class="hidden" style="margin-top: 20px; border-top: 1px solid #1e293b; padding-top: 20px;">
+                    <h4 style="color: var(--neon-orange); margin: 0 0 10px 0; text-align: center;">Register New Account</h4>
+                    <input type="text" id="sponsor-address" placeholder="Enter Sponsor 0x...">
+                    <button class="btn-approve" onclick="approveUSDT()">1. Approve USDT</button>
+                    <button class="btn-primary" onclick="registerAndBuy()">2. Sign Up & Buy</button>
+                </div>
+            </div>
 
-                // Folder 1: NFT Logic
-                let activeIndex = await gameContract.activeNftIndex();
-                document.getElementById("active-nft-id").innerText = activeIndex.toString();
+            <div id="dashboard-sections" class="hidden">
                 
-                let activeNft = await gameContract.nfts(activeIndex);
-                document.getElementById("active-nft-price").innerText = parseFloat(ethers.utils.formatUnits(activeNft.currentPrice, 18)).toFixed(2);
+                <div id="trading" class="folder">
+                    <h3 style="margin-top: 0;">Trading Area</h3>
+                    <div class="info-box">
+                        <p style="margin: 5px 0;">Active NFT: <strong style="color: var(--neon-cyan);">#<span id="active-nft-id">0</span></strong></p>
+                        <p style="margin: 5px 0;">Price: <strong style="color: var(--neon-cyan);"><span id="active-nft-price">0.00</span> USDT</strong></p>
+                    </div>
+                    <div class="info-box" style="text-align: center; border-left: none; border-top: 3px solid var(--neon-orange);">
+                        <h4 id="nft-status-label" style="margin: 5px 0; color: var(--text-muted);">LOADING...</h4>
+                        <div class="timer-text" id="nft-timer">--:--:--</div>
+                    </div>
+                </div>
 
-                let auctionEnd = await gameContract.auctionEndTime();
-                start36hTimer(auctionEnd.toNumber());
-
-                let soldHtml = "";
-                if (activeIndex > 0) {
-                    for (let i = activeIndex.toNumber() - 1; i >= 0; i--) {
-                        let soldNft = await gameContract.nfts(i);
-                        let price = parseFloat(ethers.utils.formatUnits(soldNft.currentPrice, 18)).toFixed(2);
-                        soldHtml += `
-                        <div style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #1f2833;">
-                            <span style="color: #c5c6c7; font-size: 14px; font-weight: bold;">NFT #${i}</span>
-                            <span style="color: #66fcf1; font-size: 14px;">${price} USDT</span>
-                            <span style="color: #ff4c4c; font-size: 14px; font-weight: bold;">SOLD</span>
-                        </div>`;
-                    }
-                } else {
-                    soldHtml = '<p style="font-size: 13px; color: #aaa; text-align: center;">No NFTs sold yet.</p>';
-                }
-                document.getElementById("sold-nfts-list").innerHTML = soldHtml;
-            } catch (err) {
-                console.error("Data load error:", err);
-            }
-        }
-
-        function start36hTimer(endTimeInSeconds) {
-            let labelEl = document.getElementById("nft-status-label");
-            let timerEl = document.getElementById("nft-timer");
-            setInterval(() => {
-                let now = Math.floor(Date.now() / 1000);
-                let timeLeft = endTimeInSeconds - now;
-                if (timeLeft > 0) {
-                    let h = Math.floor(timeLeft / 3600).toString().padStart(2, '0');
-                    let m = Math.floor((timeLeft % 3600) / 60).toString().padStart(2, '0');
-                    let s = (timeLeft % 60).toString().padStart(2, '0');
-                    timerEl.innerText = `${h}:${m}:${s}`;
-                    labelEl.innerText = "NOT FOR SALE";
-                    labelEl.style.color = "#ff4c4c"; 
-                } else {
-                    timerEl.innerText = "00:00:00";
-                    labelEl.innerText = "IN SALE";
-                    labelEl.style.color = "#66fcf1"; 
-                }
-            }, 1000);
-        }
-
-        function start24hTimer(endTimeInSeconds) {
-            let timerInterval = setInterval(() => {
-                let now = Math.floor(Date.now() / 1000);
-                let timeLeft = endTimeInSeconds - now;
-                if (timeLeft > 0) {
-                    let h = Math.floor(timeLeft / 3600).toString().padStart(2, '0');
-                    let m = Math.floor((timeLeft % 3600) / 60).toString().padStart(2, '0');
-                    let s = (timeLeft % 60).toString().padStart(2, '0');
-                    document.getElementById("limit-timer").innerText = `${h}:${m}:${s}`;
-                } else {
-                    document.getElementById("limit-timer").innerText = "00:00:00";
-                    document.getElementById("used-limit").innerText = "0.00"; 
-                    clearInterval(timerInterval);
-                }
-            }, 1000);
-        }
-
-        function switchTab(event, tabId) {
-            document.getElementById('trading').classList.add('hidden');
-            document.getElementById('market').classList.add('hidden');
-            document.getElementById('income').classList.add('hidden');
-            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-            document.getElementById(tabId).classList.remove('hidden');
-            event.currentTarget.classList.add('active');
-        }
-
-        async function approveUSDT() {
-            try {
-                let maxApproveAmount = ethers.constants.MaxUint256; 
-                let tx = await usdtContract.approve(contractAddress, maxApproveAmount);
-                alert("Approve request sent! Confirm in MetaMask.");
-                await tx.wait(); 
-                alert("USDT Approved Successfully!");
-            } catch (err) { alert("Approval Failed!"); }
-        }
-
-        async function registerAndBuy() {
-            let sponsor = document.getElementById("sponsor-address").value;
-            if(!sponsor) { alert("Enter Sponsor Address!"); return; }
-            try {
-                let tx = await gameContract.buyNFT(sponsor);
-                alert("Transaction sent! Waiting...");
-                await tx.wait();
-                alert("Sign Up Successful!");
-                location.reload(); 
-            } catch (err) { alert("Transaction Failed! Did you Approve USDT?"); }
-        }
-
-        async function buyNFT() {
-            try {
-                let tx = await gameContract.buyNFT(ethers.constants.AddressZero);
-                alert("Buy transaction sent! Waiting...");
-                await tx.wait();
-                alert("NFT Purchased Successfully!");
-                loadFoldersData(); 
-            } catch (err) { alert("Purchase Failed! Limit reached or no balance."); }
-        }
-    </script>
-</body>
-</html>
+                <div id="market" class="folder hidden">
+                    <h3 style="margin-top: 0;">Marketplace</h3>
+                    <div class="info-box">
+                        <p style="font-size: 13px; color: var(--text-muted);">Purchase the latest NFT from the smart contract.</p>
