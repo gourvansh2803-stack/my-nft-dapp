@@ -2,131 +2,79 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>NFTradex Professional</title>
+    <title>NFTradex Stable Build</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
     <style>
-        :root { --bg: #050b14; --cyan: #00f0ff; --glass: #111a28; }
-        body { background: var(--bg); color: #fff; font-family: sans-serif; margin: 0; padding-bottom: 80px; }
-        .tab-content { display: none; padding: 20px; }
-        .tab-content.active { display: block; }
-        .card { background: var(--glass); border: 1px solid #1e293b; border-radius: 16px; padding: 20px; margin-bottom: 15px; }
-        .nav { position: fixed; bottom: 0; width: 100%; background: #000; display: flex; justify-content: space-around; padding: 15px 0; border-top: 1px solid #1e293b; }
-        .btn { background: var(--cyan); color: #000; border: none; padding: 12px; border-radius: 8px; width: 100%; font-weight: bold; cursor: pointer; }
-        .history-item { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #1e293b; font-size: 14px; }
+        body { background: #050b14; color: #fff; font-family: sans-serif; margin: 0; padding: 20px; }
+        .card { background: #111a28; padding: 15px; border-radius: 12px; margin-bottom: 10px; border: 1px solid #1e293b; }
+        .error { color: #ff5555; padding: 10px; border: 1px solid #ff5555; margin-bottom: 10px; }
+        .nav { position: fixed; bottom: 0; left: 0; width: 100%; background: #000; display: flex; justify-content: space-around; padding: 15px 0; }
     </style>
 </head>
 <body>
 
-<div id="loader" style="text-align:center; color:var(--cyan); padding:10px;">Connecting...</div>
+<div id="debug-board" style="font-size:12px; color:yellow; margin-bottom:10px;">System: Initializing...</div>
 
-<div id="trade-page" class="tab-content active">
-    <h3>Trading Area</h3>
-    <div class="card" id="trading-card">Loading...</div>
-    <h4>📜 My History</h4>
-    <div id="history-list" class="card">No history</div>
+<div id="view-trade" class="view">
+    <h3>Trading</h3>
+    <div class="card" id="trade-ui">Connecting...</div>
+    <h4>History</h4>
+    <div id="history-ui"></div>
 </div>
 
-<div id="market-page" class="tab-content">
-    <h3>Marketplace</h3>
-    <div class="card">
-        <p>NFT Price: <span id="m-price">0</span> USDT</p>
-        <p>Limit Used: <span id="m-used">0</span> / 12 USDT</p>
-        <div id="timer-24h" style="color:var(--cyan); font-weight:bold;">--:--:--</div>
-        <button class="btn" onclick="buyNFT()">Buy NFT</button>
-    </div>
-</div>
-
-<div id="income-page" class="tab-content">
-    <h3>My Account</h3>
-    <div class="card">
-        <p>Net Profit (3%): <span id="n-profit">0</span> USDT</p>
-        <p>Team Size: <span id="t-count">0</span></p>
-    </div>
+<div id="view-market" class="view" style="display:none;">
+    <h3>Market</h3>
+    <div class="card">Price: <span id="m-price">0</span> USDT</div>
+    <button onclick="buyNFT()">Buy NFT</button>
 </div>
 
 <nav class="nav">
-    <button onclick="switchTab('trade-page')">📈 Trade</button>
-    <button onclick="switchTab('market-page')">🛒 Market</button>
-    <button onclick="switchTab('income-page')">💰 Income</button>
+    <button onclick="show('trade')">Trade</button>
+    <button onclick="show('market')">Market</button>
 </nav>
 
 <script>
     const addr = "0x24ec0Da54E5C70E9ab3289cAA9684DE82bEa4E68";
-    const abi = ["function isRegistered(address) view returns(bool)", "function activeNftIndex() view returns(uint256)", "function nfts(uint256) view returns(address, uint256)", "function lastInvestmentTimestamp(address) view returns(uint256)", "function dailyInvestment(address) view returns(uint256)", "function totalEarned(address) view returns(uint256)", "function teamCount(address) view returns(uint256)", "function buyNFT(address) external"];
+    const abi = ["function isRegistered(address) view returns(bool)", "function activeNftIndex() view returns(uint256)", "function nfts(uint256) view returns(address, uint256)", "function lastInvestmentTimestamp(address) view returns(uint256)", "function buyNFT(address) external"];
     
     let contract, user;
 
     async function init() {
+        const board = document.getElementById('debug-board');
         try {
+            if (!window.ethereum) throw "MetaMask not found!";
             const provider = new ethers.providers.Web3Provider(window.ethereum);
             await window.ethereum.request({ method: 'eth_requestAccounts' });
             user = await provider.getSigner().getAddress();
             contract = new ethers.Contract(addr, abi, provider.getSigner());
-            document.getElementById('loader').innerText = "Connected";
+            board.innerText = "Connected: " + user.slice(-5);
             loadData();
-        } catch(e) { document.getElementById('loader').innerText = "MetaMask Error: " + e.message; }
+        } catch(e) { board.innerHTML = "<div class='error'>Error: " + e.message + "</div>"; }
     }
 
     async function loadData() {
         try {
-            const isReg = await contract.isRegistered(user);
-            if(!isReg) { document.getElementById('trading-card').innerText = "Not Registered"; return; }
-
-            const [idx, lastInvest, earned, team, used] = await Promise.all([
-                contract.activeNftIndex(), contract.lastInvestmentTimestamp(user),
-                contract.totalEarned(user), contract.teamCount(user), contract.dailyInvestment(user)
-            ]);
-
-            // Trading
-            if(lastInvest.toNumber() === 0) {
-                document.getElementById('trading-card').innerHTML = "NO NFT PURCHASED";
+            const idx = await contract.activeNftIndex();
+            const last = await contract.lastInvestmentTimestamp(user);
+            
+            // Trading UI
+            if(last.toNumber() === 0) {
+                document.getElementById('trade-ui').innerHTML = "NO NFT PURCHASED";
             } else {
                 const nft = await contract.nfts(idx);
-                document.getElementById('trading-content').innerHTML = `Active NFT #${idx}<br>Price: ${ethers.utils.formatUnits(nft[1], 18)} USDT<br><div id="timer-36h" style="color:var(--cyan)">--:--:--</div>`;
-                startTimer(lastInvest.toNumber() + (36 * 3600), 'timer-36h');
+                document.getElementById('trade-ui').innerHTML = `NFT #${idx}<br>Price: ${ethers.utils.formatUnits(nft[1], 18)} USDT`;
+                document.getElementById('m-price').innerText = ethers.utils.formatUnits(nft[1], 18);
             }
-
-            // Market
-            document.getElementById('m-price').innerText = ethers.utils.formatUnits((await contract.nfts(idx))[1], 18);
-            document.getElementById('m-used').innerText = ethers.utils.formatUnits(used, 18);
-            startTimer(lastInvest.toNumber() + (24 * 3600), 'timer-24h');
-
-            // Income
-            document.getElementById('n-profit').innerText = (parseFloat(ethers.utils.formatUnits(earned, 18)) * 0.03).toFixed(4);
-            document.getElementById('t-count').innerText = team.toString();
-
-            // History
-            let html = "";
-            let idxNum = idx.toNumber();
-            for(let i=0; i<=idxNum; i++) {
-                let n = await contract.nfts(i);
-                if(n[0].toLowerCase() == user.toLowerCase()) {
-                    let status = (i == idxNum) ? "IN SALE" : "SOLD";
-                    html += `<div class="history-item"><span>NFT #${i}</span><span>${ethers.utils.formatUnits(n[1], 18)} USDT</span><span style="color:var(--cyan)">${status}</span></div>`;
-                }
-            }
-            document.getElementById('history-list').innerHTML = html || "No history";
-
-        } catch(e) { console.error(e); document.getElementById('loader').innerText = "Data Load Error"; }
+        } catch(e) { document.getElementById('debug-board').innerHTML += "<br>Data Error: " + e.message; }
     }
 
-    function startTimer(end, id) {
-        let el = document.getElementById(id);
-        if(!el) return;
-        const interval = setInterval(() => {
-            let left = end - Math.floor(Date.now() / 1000);
-            if(left > 0) el.innerText = new Date(left * 1000).toISOString().substr(11, 8);
-            else { el.innerText = "00:00:00"; clearInterval(interval); }
-        }, 1000);
+    function show(id) {
+        document.querySelectorAll('.view').forEach(v => v.style.display = 'none');
+        document.getElementById('view-'+id).style.display = 'block';
     }
 
-    function switchTab(id) {
-        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-        document.getElementById(id).classList.add('active');
-    }
+    async function buyNFT() { try { await (await contract.buyNFT(ethers.constants.AddressZero)).wait(); loadData(); } catch(e) { alert(e.message); } }
 
-    async function buyNFT() { try { await (await contract.buyNFT(ethers.constants.AddressZero)).wait(); loadData(); } catch(e) { alert("Tx Failed"); } }
-    
     init();
 </script>
 </body>
