@@ -6,25 +6,26 @@
     <title>NFTradex Professional</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
     <style>
-        :root { --bg: #050b14; --card: #111a28; --cyan: #00f0ff; --orange: #ffaa00; }
-        body { background: var(--bg); color: #fff; font-family: 'Segoe UI', sans-serif; margin: 0; padding-bottom: 80px; }
+        :root { --bg: #050b14; --card: #111a28; --cyan: #00f0ff; --orange: #ffaa00; --text: #e2e8f0; }
+        body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', sans-serif; margin: 0; padding-bottom: 80px; }
         .page { display: none; padding: 20px; }
         .page.active { display: block; }
         .card { background: var(--card); border-radius: 16px; padding: 20px; margin-bottom: 15px; border: 1px solid #1e293b; }
         .nav { position: fixed; bottom: 0; width: 100%; background: #000; display: flex; justify-content: space-around; padding: 15px 0; border-top: 1px solid #1e293b; z-index: 100; }
-        .btn { background: var(--cyan); border: none; padding: 12px; border-radius: 8px; width: 100%; font-weight: bold; cursor: pointer; color: #000; }
+        .btn { background: var(--cyan); color: #000; border: none; padding: 12px; border-radius: 8px; width: 100%; font-weight: bold; cursor: pointer; }
         .timer { font-size: 18px; color: var(--cyan); font-weight: bold; }
         .history-item { display: flex; justify-content: space-between; border-bottom: 1px solid #1e293b; padding: 10px 0; font-size: 14px; }
         .loader { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: flex; justify-content: center; align-items: center; z-index: 999; }
+        .hidden { display: none !important; }
     </style>
 </head>
 <body>
 
-<div id="loader" class="loader hidden">Loading...</div>
+<div id="loader" class="loader hidden">Loading System...</div>
 
 <div id="trade" class="page active">
     <h3>Trading Area</h3>
-    <div class="card" id="trading-content">Loading...</div>
+    <div class="card" id="trading-content">Initialising...</div>
     <h4>📜 My History</h4>
     <div id="history-list"></div>
 </div>
@@ -35,7 +36,7 @@
         <p>NFT Price: <span id="m-price">0</span> USDT</p>
         <p>Limit Used: <span id="m-used">0</span> / 12 USDT</p>
         <div class="timer" id="timer-24h">--:--:--</div>
-        <button class="btn" onclick="buyNFT()">Buy NFT</button>
+        <button class="btn" onclick="buyNFT()">Buy NFT Now</button>
     </div>
 </div>
 
@@ -43,15 +44,15 @@
     <h3>My Account</h3>
     <div class="card">
         <p>Net Profit (3%): <span id="n-profit">0.00</span> USDT</p>
-        <p>Team Size: <span id="t-count">0</span></p>
+        <p>Team Members: <span id="t-count">0</span></p>
     </div>
 </div>
 
-<div class="nav">
+<nav class="nav">
     <button onclick="switchTab('trade')">📈 Trade</button>
     <button onclick="switchTab('market')">🛒 Market</button>
     <button onclick="switchTab('income')">💰 Income</button>
-</div>
+</nav>
 
 <script>
     const contractAddress = "0x24ec0Da54E5C70E9ab3289cAA9684DE82bEa4E68";
@@ -79,12 +80,13 @@
                 contract.dailyInvestment(userAddress)
             ]);
 
-            // Trading Section
+            // Trading Section logic
+            const tradingEl = document.getElementById('trading-content');
             if(lastInvest.toNumber() === 0) {
-                document.getElementById('trading-content').innerHTML = "NO NFT PURCHASED";
+                tradingEl.innerHTML = "<p>NO NFT PURCHASED</p>";
             } else {
                 const nft = await contract.nfts(idx);
-                document.getElementById('trading-content').innerHTML = `Active NFT #${idx}<br>Price: ${ethers.utils.formatUnits(nft[1], 18)} USDT<br><div class="timer" id="timer-36h">--:--:--</div>`;
+                tradingEl.innerHTML = `Active NFT #${idx}<br>Price: ${ethers.utils.formatUnits(nft[1], 18)} USDT<br><div class="timer" id="timer-36h">--:--:--</div>`;
                 startTimer(lastInvest.toNumber() + (36 * 3600), 'timer-36h');
             }
 
@@ -107,7 +109,7 @@
             }
             document.getElementById('history-list').innerHTML = html || "No history";
 
-        } catch(e) { console.error(e); }
+        } catch(e) { console.error("Load Error:", e); }
         document.getElementById('loader').classList.add('hidden');
     }
 
@@ -124,9 +126,13 @@
         document.getElementById('page-'+t).classList.add('active');
     }
 
-    async function buyNFT() { await (await contract.buyNFT(ethers.constants.AddressZero)).wait(); loadAllData(); }
+    async function buyNFT() { 
+        document.getElementById('loader').classList.remove('hidden');
+        try { await (await contract.buyNFT(ethers.constants.AddressZero)).wait(); loadAllData(); } 
+        catch(e) { alert("Tx Failed"); document.getElementById('loader').classList.add('hidden'); }
+    }
     
-    init(); // Start automatically
+    init();
 </script>
 </body>
 </html>
