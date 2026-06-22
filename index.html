@@ -2,84 +2,113 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>NFTradex Pro - Final Version</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NFTradex Professional</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
     <style>
-        :root { --bg: #050b14; --cyan: #00f0ff; --card: #111a28; }
-        body { background: var(--bg); color: #fff; font-family: sans-serif; margin: 0; padding-bottom: 80px; }
+        :root { --bg: #050b14; --card: #111a28; --cyan: #00f0ff; --orange: #ffaa00; }
+        body { background: var(--bg); color: #fff; font-family: 'Segoe UI', sans-serif; margin: 0; padding-bottom: 80px; }
         .page { display: none; padding: 20px; }
-        .active { display: block; }
+        .page.active { display: block; }
         .card { background: var(--card); border-radius: 16px; padding: 20px; margin-bottom: 15px; border: 1px solid #1e293b; }
         .nav { position: fixed; bottom: 0; width: 100%; background: #000; display: flex; justify-content: space-around; padding: 15px 0; border-top: 1px solid #1e293b; z-index: 100; }
-        .btn { background: var(--cyan); color: #000; border: none; padding: 12px; border-radius: 8px; width: 100%; font-weight: bold; cursor: pointer; }
-        .timer { font-size: 20px; color: var(--cyan); font-weight: bold; }
+        .btn { background: var(--cyan); border: none; padding: 12px; border-radius: 8px; width: 100%; font-weight: bold; cursor: pointer; color: #000; }
+        .timer { font-size: 18px; color: var(--cyan); font-weight: bold; }
+        .history-item { display: flex; justify-content: space-between; border-bottom: 1px solid #1e293b; padding: 10px 0; font-size: 14px; }
+        .loader { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: flex; justify-content: center; align-items: center; z-index: 999; }
     </style>
 </head>
 <body>
 
-<div id="page-trade" class="page active">
+<div id="loader" class="loader hidden">Loading...</div>
+
+<div id="trade" class="page active">
     <h3>Trading Area</h3>
     <div class="card" id="trading-content">Loading...</div>
     <h4>📜 My History</h4>
     <div id="history-list"></div>
 </div>
 
-<div id="page-market" class="page">
-    <h3>Market</h3>
+<div id="market" class="page">
+    <h3>Marketplace</h3>
     <div class="card">
-        <p>Price: <span id="m-price">0</span> USDT</p>
-        <p>Limit: <span id="m-used">0</span> / 12 USDT</p>
+        <p>NFT Price: <span id="m-price">0</span> USDT</p>
+        <p>Limit Used: <span id="m-used">0</span> / 12 USDT</p>
         <div class="timer" id="timer-24h">--:--:--</div>
         <button class="btn" onclick="buyNFT()">Buy NFT</button>
+    </div>
+</div>
+
+<div id="income" class="page">
+    <h3>My Account</h3>
+    <div class="card">
+        <p>Net Profit (3%): <span id="n-profit">0.00</span> USDT</p>
+        <p>Team Size: <span id="t-count">0</span></p>
     </div>
 </div>
 
 <div class="nav">
     <button onclick="switchTab('trade')">📈 Trade</button>
     <button onclick="switchTab('market')">🛒 Market</button>
+    <button onclick="switchTab('income')">💰 Income</button>
 </div>
 
 <script>
     const contractAddress = "0x24ec0Da54E5C70E9ab3289cAA9684DE82bEa4E68";
-    const abi = ["function isRegistered(address) view returns(bool)", "function activeNftIndex() view returns(uint256)", "function nfts(uint256) view returns(address, uint256)", "function lastInvestmentTimestamp(address) view returns(uint256)", "function dailyInvestment(address) view returns(uint256)", "function buyNFT(address) external"];
+    const abi = ["function isRegistered(address) view returns(bool)", "function activeNftIndex() view returns(uint256)", "function nfts(uint256) view returns(address, uint256)", "function lastInvestmentTimestamp(address) view returns(uint256)", "function dailyInvestment(address) view returns(uint256)", "function totalEarned(address) view returns(uint256)", "function teamCount(address) view returns(uint256)", "function buyNFT(address) external"];
     
-    let gameContract, userAddress;
+    let contract, userAddress;
 
-    async function setupNetwork() {
-        try {
-            await window.ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: '0xcc' }] });
-        } catch(e) { console.error("Network Error"); }
-    }
-
-    async function connect() {
-        await setupNetwork();
+    async function init() {
+        if (!window.ethereum) return alert("Install MetaMask");
         const provider = new ethers.providers.Web3Provider(window.ethereum);
         const signer = provider.getSigner();
         userAddress = await signer.getAddress();
-        gameContract = new ethers.Contract(contractAddress, abi, signer);
-        loadAll();
+        contract = new ethers.Contract(contractAddress, abi, signer);
+        loadAllData();
     }
 
-    async function loadAll() {
+    async function loadAllData() {
+        document.getElementById('loader').classList.remove('hidden');
         try {
-            const idx = (await gameContract.activeNftIndex()).toNumber();
-            const lastInvest = (await gameContract.lastInvestmentTimestamp(userAddress)).toNumber();
-            
-            // Trading & History
-            if(lastInvest === 0) {
+            const [idx, lastInvest, earned, team, used] = await Promise.all([
+                contract.activeNftIndex(),
+                contract.lastInvestmentTimestamp(userAddress),
+                contract.totalEarned(userAddress),
+                contract.teamCount(userAddress),
+                contract.dailyInvestment(userAddress)
+            ]);
+
+            // Trading Section
+            if(lastInvest.toNumber() === 0) {
                 document.getElementById('trading-content').innerHTML = "NO NFT PURCHASED";
             } else {
-                const nft = await gameContract.nfts(idx);
-                document.getElementById('trading-content').innerHTML = `NFT #${idx}<br>Price: ${ethers.utils.formatUnits(nft[1], 18)} USDT`;
-                startTimer(lastInvest + (36 * 3600), 'timer-36h');
+                const nft = await contract.nfts(idx);
+                document.getElementById('trading-content').innerHTML = `Active NFT #${idx}<br>Price: ${ethers.utils.formatUnits(nft[1], 18)} USDT<br><div class="timer" id="timer-36h">--:--:--</div>`;
+                startTimer(lastInvest.toNumber() + (36 * 3600), 'timer-36h');
             }
 
-            // Market
-            const used = await gameContract.dailyInvestment(userAddress);
+            // Market Section
+            document.getElementById('m-price').innerText = ethers.utils.formatUnits((await contract.nfts(idx))[1], 18);
             document.getElementById('m-used').innerText = ethers.utils.formatUnits(used, 18);
-            startTimer(lastInvest + (24 * 3600), 'timer-24h');
+            startTimer(lastInvest.toNumber() + (24 * 3600), 'timer-24h');
 
-        } catch(e) { console.error("Data Error:", e); }
+            // Income Section
+            document.getElementById('n-profit').innerText = (parseFloat(ethers.utils.formatUnits(earned, 18)) * 0.03).toFixed(4);
+            document.getElementById('t-count').innerText = team.toString();
+
+            // History
+            let html = "";
+            for(let i=0; i<idx.toNumber(); i++) {
+                let n = await contract.nfts(i);
+                if(n[0].toLowerCase() == userAddress.toLowerCase()) {
+                    html += `<div class="history-item"><span>NFT #${i}</span><span>SOLD</span></div>`;
+                }
+            }
+            document.getElementById('history-list').innerHTML = html || "No history";
+
+        } catch(e) { console.error(e); }
+        document.getElementById('loader').classList.add('hidden');
     }
 
     function startTimer(end, id) {
@@ -95,7 +124,9 @@
         document.getElementById('page-'+t).classList.add('active');
     }
 
-    async function buyNFT() { await (await gameContract.buyNFT(ethers.constants.AddressZero)).wait(); loadAll(); }
+    async function buyNFT() { await (await contract.buyNFT(ethers.constants.AddressZero)).wait(); loadAllData(); }
+    
+    init(); // Start automatically
 </script>
 </body>
 </html>
