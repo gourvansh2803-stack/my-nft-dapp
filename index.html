@@ -6,100 +6,199 @@
     <title>NFTradex Pro</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
     <style>
-        :root { --bg: #050b14; --card: #111a28; --cyan: #00f0ff; --text: #e2e8f0; }
-        body { background: var(--bg); color: var(--text); font-family: sans-serif; margin: 0; padding-bottom: 80px; }
-        .page { display: none; padding: 20px; }
-        .active { display: block; }
-        .card { background: var(--card); border-radius: 16px; padding: 20px; margin-bottom: 15px; border: 1px solid #1e293b; }
-        .nav { position: fixed; bottom: 0; width: 100%; background: #000; display: flex; justify-content: space-around; padding: 15px 0; border-top: 1px solid #1e293b; }
-        .btn { background: var(--cyan); border: none; padding: 12px; border-radius: 8px; width: 100%; font-weight: bold; cursor: pointer; }
-        .timer { font-size: 20px; color: var(--cyan); font-weight: bold; }
-        .history-item { display: flex; justify-content: space-between; border-bottom: 1px solid #1e293b; padding: 8px 0; font-size: 14px; }
+        /* Modern Dark Theme Variables */
+        :root {
+            --bg-main: #050b14;
+            --bg-card: #111a28;
+            --neon-cyan: #00f0ff;
+            --neon-blue: #0066ff;
+            --neon-orange: #ffaa00;
+            --text-main: #e2e8f0;
+            --text-muted: #94a3b8;
+        }
+
+        body { 
+            font-family: 'Segoe UI', system-ui, sans-serif; 
+            background-color: #000; 
+            color: var(--text-main); 
+            margin: 0; 
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        /* Mobile App Container */
+        .app-container { 
+            width: 100%; 
+            max-width: 400px; 
+            height: 100vh;
+            max-height: 850px;
+            background: var(--bg-main); 
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 0 40px rgba(0, 102, 255, 0.2);
+        }
+
+        @media (min-width: 450px) {
+            .app-container { height: 90vh; border-radius: 20px; border: 1px solid #1e293b; }
+        }
+
+        /* Header */
+        .app-header {
+            padding: 20px;
+            text-align: center;
+            background: linear-gradient(180deg, var(--bg-card) 0%, transparent 100%);
+            border-bottom: 1px solid rgba(0, 240, 255, 0.1);
+        }
+        .app-header h2 { margin: 0; font-size: 22px; color: var(--neon-cyan); letter-spacing: 1px; text-transform: uppercase; }
+        .wallet-status { font-size: 12px; color: var(--text-muted); margin-top: 5px; }
+
+        /* Main Content Area */
+        .content-area {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            padding-bottom: 80px; /* Space for bottom nav */
+        }
+
+        /* Folders / Cards */
+        .folder { 
+            background: var(--bg-card); 
+            padding: 20px; 
+            border-radius: 16px; 
+            border: 1px solid rgba(255, 255, 255, 0.05); 
+            margin-bottom: 15px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+            animation: fadeIn 0.4s ease-in-out;
+        }
+        
+        .info-box { 
+            background: rgba(0, 0, 0, 0.4); 
+            padding: 15px; 
+            border-radius: 12px; 
+            margin-bottom: 15px; 
+            border-left: 3px solid var(--neon-cyan); 
+        }
+
+        .timer-text { font-size: 28px; color: var(--neon-cyan); font-weight: 800; margin: 10px 0; letter-spacing: 2px; text-align: center; text-shadow: 0 0 10px rgba(0, 240, 255, 0.4); }
+
+        /* Inputs & Buttons */
+        input { 
+            width: 100%; box-sizing: border-box; padding: 14px; margin: 10px 0; 
+            border-radius: 8px; border: 1px solid #1e293b; 
+            background: #0f172a; color: white; text-align: center; outline: none;
+        }
+        input:focus { border-color: var(--neon-cyan); box-shadow: 0 0 8px rgba(0, 240, 255, 0.2); }
+
+        button { 
+            width: 100%; padding: 14px; margin: 8px 0; border-radius: 8px; 
+            border: none; font-weight: 700; font-size: 16px; cursor: pointer; 
+            transition: all 0.3s; text-transform: uppercase; letter-spacing: 1px;
+        }
+        .btn-primary { background: linear-gradient(90deg, var(--neon-blue), var(--neon-cyan)); color: #000; box-shadow: 0 4px 15px rgba(0, 240, 255, 0.3); }
+        .btn-primary:active { transform: scale(0.98); box-shadow: none; }
+        .btn-approve { background: transparent; border: 1px solid var(--neon-orange); color: var(--neon-orange); }
+
+        /* Bottom Navigation Bar */
+        .bottom-nav {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            background: var(--bg-card);
+            display: flex;
+            justify-content: space-around;
+            padding: 15px 0;
+            border-top: 1px solid rgba(255,255,255,0.05);
+            box-shadow: 0 -5px 20px rgba(0,0,0,0.5);
+            z-index: 10;
+        }
+        .nav-item {
+            color: var(--text-muted);
+            background: transparent;
+            border: none;
+            font-size: 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+            width: 25%;
+            padding: 0;
+            margin: 0;
+            text-transform: none;
+            font-weight: 500;
+        }
+        .nav-item span.icon { font-size: 20px; }
+        .nav-item.active { color: var(--neon-cyan); text-shadow: 0 0 8px rgba(0, 240, 255, 0.5); }
+
+        /* Utility */
+        .hidden { display: none !important; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* Loader */
+        .loader-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(5, 11, 20, 0.9); z-index: 50;
+            display: flex; justify-content: center; align-items: center;
+        }
+        .spinner {
+            width: 40px; height: 40px;
+            border: 4px solid rgba(0, 240, 255, 0.2);
+            border-top-color: var(--neon-cyan);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
 
-<div id="page-trade" class="page active">
-    <h3>Trading Area</h3>
-    <div class="card" id="trading-content">
-        <div id="nft-info">Loading...</div>
-        <div class="timer" id="timer-36h">--:--:--</div>
-    </div>
-    <h4>📜 My History</h4>
-    <div id="history-list"></div>
-</div>
+    <div class="app-container">
+        
+        <header class="app-header">
+            <h2>NFT Pipeline</h2>
+            <div class="wallet-status" id="wallet-status">🔴 Not Connected</div>
+        </header>
 
-<div id="page-market" class="page">
-    <h3>Marketplace</h3>
-    <div class="card">
-        <p>NFT Price: <span id="m-price">0</span> USDT</p>
-        <p>Limit: <span id="m-used">0</span> / 12 USDT</p>
-        <div class="timer" id="timer-24h">--:--:--</div>
-        <button class="btn" onclick="buyNFT()">Buy NFT</button>
-    </div>
-</div>
+        <div id="loader" class="loader-overlay hidden">
+            <div class="spinner"></div>
+        </div>
 
-<div class="nav">
-    <button onclick="switchTab('trade')">📈 Trade</button>
-    <button onclick="switchTab('market')">🛒 Market</button>
-</div>
+        <main class="content-area">
 
-<script>
-    const contractAddress = "0x24ec0Da54E5C70E9ab3289cAA9684DE82bEa4E68";
-    const abi = ["function isRegistered(address) view returns(bool)", "function activeNftIndex() view returns(uint256)", "function nfts(uint256) view returns(address, uint256)", "function lastInvestmentTimestamp(address) view returns(uint256)", "function dailyInvestment(address) view returns(uint256)", "function buyNFT(address) external"];
-    
-    let gameContract, userAddress;
+            <div id="auth-section" class="folder">
+                <div style="text-align: center; margin-bottom: 20px;">
+                    <div style="font-size: 40px; margin-bottom: 10px;">🛡️</div>
+                    <h3 style="margin: 0;">Welcome to the Game</h3>
+                    <p style="color: var(--text-muted); font-size: 13px;">Secure your assets on Web3</p>
+                </div>
+                <button class="btn-primary" id="connect-btn" onclick="connectWallet()">Connect Wallet</button>
+                
+                <div id="signup-box" class="hidden" style="margin-top: 20px; border-top: 1px solid #1e293b; padding-top: 20px;">
+                    <h4 style="color: var(--neon-orange); margin: 0 0 10px 0; text-align: center;">Register New Account</h4>
+                    <input type="text" id="sponsor-address" placeholder="Enter Sponsor 0x...">
+                    <button class="btn-approve" onclick="approveUSDT()">1. Approve USDT</button>
+                    <button class="btn-primary" onclick="registerAndBuy()">2. Sign Up & Buy</button>
+                </div>
+            </div>
 
-    async function connect() {
-        const provider = new ethers.providers.Web3Provider(window.ethereum);
-        const signer = provider.getSigner();
-        userAddress = await signer.getAddress();
-        gameContract = new ethers.Contract(contractAddress, abi, signer);
-        loadAll();
-    }
+            <div id="dashboard-sections" class="hidden">
+                
+                <div id="trading" class="folder">
+                    <h3 style="margin-top: 0;">Trading Area</h3>
+                    <div class="info-box">
+                        <p style="margin: 5px 0;">Active NFT: <strong style="color: var(--neon-cyan);">#<span id="active-nft-id">0</span></strong></p>
+                        <p style="margin: 5px 0;">Price: <strong style="color: var(--neon-cyan);"><span id="active-nft-price">0.00</span> USDT</strong></p>
+                    </div>
+                    <div class="info-box" style="text-align: center; border-left: none; border-top: 3px solid var(--neon-orange);">
+                        <h4 id="nft-status-label" style="margin: 5px 0; color: var(--text-muted);">LOADING...</h4>
+                        <div class="timer-text" id="nft-timer">--:--:--</div>
+                    </div>
+                </div>
 
-    async function loadAll() {
-        try {
-            const idx = (await gameContract.activeNftIndex()).toNumber();
-            const lastInvest = (await gameContract.lastInvestmentTimestamp(userAddress)).toNumber();
-            
-            // Trading Logic
-            if(lastInvest === 0) {
-                document.getElementById('nft-info').innerHTML = "<p>NO NFT PURCHASED</p>";
-            } else {
-                const nft = await gameContract.nfts(idx);
-                document.getElementById('nft-info').innerHTML = `NFT #${idx}<br>Price: ${ethers.utils.formatUnits(nft[1], 18)} USDT`;
-                startTimer(lastInvest + (36 * 3600), 'timer-36h');
-            }
-
-            // Market Logic
-            const limitUsed = await gameContract.dailyInvestment(userAddress);
-            document.getElementById('m-used').innerText = ethers.utils.formatUnits(limitUsed, 18);
-            startTimer(lastInvest + (24 * 3600), 'timer-24h');
-
-            // History
-            let html = "";
-            for(let i=0; i<idx; i++) {
-                let n = await gameContract.nfts(i);
-                if(n[0].toLowerCase() == userAddress.toLowerCase()) {
-                    html += `<div class="history-item"><span>NFT #${i}</span><span>SOLD</span></div>`;
-                }
-            }
-            document.getElementById('history-list').innerHTML = html || "No history";
-        } catch(e) { console.error(e); }
-    }
-
-    function startTimer(end, id) {
-        setInterval(() => {
-            let left = end - Math.floor(Date.now() / 1000);
-            document.getElementById(id).innerText = left > 0 ? new Date(left * 1000).toISOString().substr(11, 8) : "00:00:00";
-        }, 1000);
-    }
-
-    function switchTab(t) {
-        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-        document.getElementById('page-'+t).classList.add('active');
-    }
-</script>
-</body>
-</html>
+                <div id="market" class="folder hidden">
+                    <h3 style="margin-top: 0;">Marketplace</h3>
+                    <div class="info-box">
+                        <p style="font-size: 13px; color: var(--text-muted);">Purchase the latest NFT from the smart contract.</p>
